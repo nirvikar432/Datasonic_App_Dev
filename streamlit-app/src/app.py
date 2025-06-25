@@ -7,7 +7,7 @@ import os
 # Set browser tab title and page config
 st.set_page_config(page_title="Datasonic Policy Portal", page_icon="📝", layout="wide")
 
-# Custom CSS for light background
+# CSS
 # st.markdown(
 #     """
 #     <style>
@@ -28,19 +28,18 @@ st.set_page_config(page_title="Datasonic Policy Portal", page_icon="📝", layou
 
 # Add the utils directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
-from db_utils import fetch_data
-from db_utils import insert_policy
+from db_utils import fetch_data, insert_policy,update_policy
 from policy_forms import policy_manual_form
 
 
 def main():
     st.title("Policy and Claims Management")
-    tabs = st.tabs(["Policies", "Claims", "Policies Edit", "Claims Edit"])
+    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit"])
     with tabs[0]:
         st.header("Policies")
         col1, col2, col3 = st.columns([7, 3, 1])
         with col2:
-            policy_search = st.text_input("Search", key="policy_search", placeholder="Search", label_visibility="visible")
+            policy_search = st.text_input("Search", key="policy_search", placeholder="Search", label_visibility="hidden")
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
         with col1:
@@ -56,8 +55,17 @@ def main():
             if policy_search and not df_policies.empty:
                 mask = df_policies.apply(lambda row: row.astype(str).str.contains(policy_search, case=False, na=False).any(), axis=1)
                 df_policies = df_policies[mask]
+
+            # --- Pagination ---
+            page_size = 10  # Number of records per page
             if not df_policies.empty:
-                st.dataframe(df_policies)
+                total_rows = len(df_policies)
+                total_pages = (total_rows - 1) // page_size + 1
+                page_num = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1, key="policy_page")
+                start_idx = (page_num - 1) * page_size
+                end_idx = start_idx + page_size
+                st.dataframe(df_policies.iloc[start_idx:end_idx])
+                st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
             else:
                 st.info("No policy data found.")
         except Exception as e:
@@ -67,7 +75,7 @@ def main():
         st.header("Claims")
         col1, col2, col3 = st.columns([7, 3, 1])
         with col2:
-            claims_search = st.text_input("Search", key="claims_search", placeholder="Enter the column name", label_visibility="visible")
+            claims_search = st.text_input("Search", key="claims_search", placeholder="Search", label_visibility="hidden")
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
         with col1:
@@ -83,15 +91,23 @@ def main():
             if claims_search and not df_claims.empty:
                 mask = df_claims.apply(lambda row: row.astype(str).str.contains(claims_search, case=False, na=False).any(), axis=1)
                 df_claims = df_claims[mask]
+            # --- Pagination ---
+            page_size = 10  # Number of records per page
             if not df_claims.empty:
-                st.dataframe(df_claims)
+                total_rows = len(df_claims)
+                total_pages = (total_rows - 1) // page_size + 1
+                page_num = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1, key="claims_page")
+                start_idx = (page_num - 1) * page_size
+                end_idx = start_idx + page_size
+                st.dataframe(df_claims.iloc[start_idx:end_idx])
+                st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
             else:
                 st.info("No claims data found.")
         except Exception as e:
             st.error(f"Error fetching claims: {e}")
 
     with tabs[2]:
-        st.header("Policies Edit")
+        st.header("Policy Edit")
         if "policy_edit_page" not in st.session_state:
             st.session_state.policy_edit_page = "main"
 
@@ -107,9 +123,7 @@ def main():
             st.markdown(f"### {ttype} Form")
 
             if ttype == "New Business":
-                # with st.form("new_business_form"):
-                st.markdown("#### New Business - Manual Entry")
-                # Generate and maintain a unique cust_id in the format temp_01, temp_02, etc.
+                # st.markdown("#### New Business Form")
                 form_data, submit, back = policy_manual_form()
 
                 if submit:
@@ -127,31 +141,100 @@ def main():
                     st.rerun()
 
             else:  # MTA or Renewal
-                with st.form("existing_policy_form"):
-                    policy_no = st.text_input("Enter Policy Number *")
-                    fetch = st.form_submit_button("Proceed")
-                    back = st.form_submit_button("Back")
-                    if fetch and policy_no.strip():
-                        st.session_state.fetched = True
-                    elif fetch:
-                        st.warning("Please enter Policy Number to proceed.")
-                    if back:
-                        st.session_state.policy_edit_page = "main"
-                        st.rerun()
+                if "fetched" not in st.session_state:
+                    st.session_state.fetched = False
+                
+                # Step 1: Policy number input form
+                if not st.session_state.fetched:
+                    with st.form("existing_policy_form"):
+                        policy_no = st.text_input("Enter Policy Number *")
+                        fetch = st.form_submit_button("Proceed")
+                        back = st.form_submit_button("Back")
+                        if fetch and policy_no.strip():
+                        # Fetch policy data
+                            query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                            result = fetch_data(query)
+                            if result:
+                                st.session_state.fetched = True
+                                st.session_state.policy_data = result[0]
+                                st.session_state.edit_fields = {}
+                            else:
+                                st.warning("No policy found with that number.")
+                        elif fetch:
+                            st.warning("Please enter Policy Number to proceed.")
+                        if back:
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.fetched = False
+                            st.rerun()
 
-                if st.session_state.get("fetched"):
+                # Step 2: Show editable form if fetched
+                if st.session_state.get("fetched") and "policy_data" in st.session_state:
                     st.markdown(f"#### {ttype} - Update Form")
+                    policy_data = st.session_state.policy_data
+                    edit_fields = {}
+
+                    # 1. Render checkboxes and text inputs OUTSIDE the form for instant interactivity
+                    for key, value in policy_data.items():
+                        edit_key = f"edit_{key}_{policy_data['POLICY_NO']}"
+                        input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
+                        
+                        st.text_input(f"{key}",value=str(value),key=input_key,disabled=not st.session_state.get(edit_key, False),label_visibility="hidden")
+                        st.checkbox(f"{key}", key=edit_key)
+
+                    # 2. Only the submit/back buttons are in the form
                     with st.form("update_policy_form"):
-                        premium = st.number_input("Update PREMIUM", format="%.2f")
-                        upload_doc = st.file_uploader("Upload Document")
-                        upload_email = st.file_uploader("Upload Email")
                         submit = st.form_submit_button("Submit")
+                        back2 = st.form_submit_button("Back")
                         if submit:
-                            st.success(f"{ttype} details updated successfully. Changes committed.")
+                            # Collect only edited fields
+                            for key, value in policy_data.items():
+                                edit_key = f"edit_{key}_{policy_data['POLICY_NO']}"
+                                input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
+                                if st.session_state.get(edit_key, False):
+                                    new_val = st.session_state[input_key]
+                                    if str(new_val) != str(value):
+                                        edit_fields[key] = new_val
+                            if edit_fields:
+                                try:
+                                    update_policy(policy_data["POLICY_NO"], edit_fields)
+                                    st.success("Selected fields updated successfully.")
+                                    st.session_state.fetched = False
+                                    st.session_state.policy_edit_page = "main"
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Update failed: {e}")
+                            else:
+                                st.info("No fields selected for update.")
+                        if back2:
+                            st.session_state.fetched = False
+                            st.rerun()
 
     with tabs[3]:
         st.header("Claims Edit")
         st.info("Claims edit functionality coming soon...")
+        # Placeholder for future claims edit functionality
+
+    # Footer
+    st.markdown(
+        """
+        <style>
+            footer {
+                position: fixed;
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                background-color: #f1f1f1;
+                text-align: center;
+                padding: 0px;
+            }
+        </style>
+        <footer>
+            <p>© 2024 Datasonic. All rights reserved.</p>
+        </footer>
+        """,
+        unsafe_allow_html=True
+    )   
+
 
 if __name__ == "__main__":
     main()

@@ -44,14 +44,13 @@ def insert_policy(policy_data):
         cursor.close()
         conn.close()
 
-def update_policy(policy_id, policy_data):
+def update_policy(policy_no, update_fields):
     conn = get_db_connection()
     cursor = conn.cursor()
-    set_clause = ', '.join([f"{key} = ?" for key in policy_data.keys()])
-    sql = f"UPDATE Policy SET {set_clause} WHERE PolicyID = ?"
-    try:
-        cursor.execute(sql, list(policy_data.values()) + [policy_id])
-        conn.commit()
-    finally:
-        cursor.close()
-        conn.close()
+    set_clause = ', '.join([f"{col} = ?" for col in update_fields.keys()])
+    sql = f"UPDATE Policy SET {set_clause} WHERE POLICY_NO = ?"
+    params = list(update_fields.values()) + [policy_no]
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
