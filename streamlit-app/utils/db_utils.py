@@ -30,3 +30,28 @@ def fetch_data(query):
     conn.close()
     
     return results
+
+def insert_policy(policy_data):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    columns = ', '.join(policy_data.keys())
+    placeholders = ', '.join(['?'] * len(policy_data))
+    sql = f"INSERT INTO Policy ({columns}) VALUES ({placeholders})"
+    try:
+        cursor.execute(sql, list(policy_data.values()))
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_policy(policy_id, policy_data):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    set_clause = ', '.join([f"{key} = ?" for key in policy_data.keys()])
+    sql = f"UPDATE Policy SET {set_clause} WHERE PolicyID = ?"
+    try:
+        cursor.execute(sql, list(policy_data.values()) + [policy_id])
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()

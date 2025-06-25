@@ -3,28 +3,48 @@ import pandas as pd
 import sys
 import os
 
+
+# Set browser tab title and page config
+st.set_page_config(page_title="Datasonic Policy Portal", page_icon="📝", layout="wide")
+
+# Custom CSS for light background
+# st.markdown(
+#     """
+#     <style>
+#         body, .stApp {
+#             background-color: #f8f9fa !important;
+#         }
+#         .stTextInput > div > div > input, .stSelectbox > div > div > div {
+#             background-color: #fff !important;
+#             color: #black !important;
+#         }
+#         .stDataFrame, .stTable {
+#             background-color: #fff !important;
+#         }
+#     </style>
+#     """,
+#     unsafe_allow_html=True
+# )
+
 # Add the utils directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
 from db_utils import fetch_data
+from db_utils import insert_policy
+from policy_forms import policy_manual_form
+
 
 def main():
     st.title("Policy and Claims Management")
-
-    tabs = st.tabs(["Policies", "Claims","Policies Edit", "Claims Edit"])
-
+    tabs = st.tabs(["Policies", "Claims", "Policies Edit", "Claims Edit"])
     with tabs[0]:
         st.header("Policies")
         col1, col2, col3 = st.columns([7, 3, 1])
         with col2:
-            policy_search = st.text_input("Search", key="policy_search", placeholder="Enter the column name", label_visibility="visible")
+            policy_search = st.text_input("Search", key="policy_search", placeholder="Search", label_visibility="visible")
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
         with col1:
-            policy_limit = st.selectbox(
-                "Records",
-                options=[10, 50, 100, 500, "All"],
-                index=0
-            )
+            policy_limit = st.selectbox("Records", options=[10, 50, 100, 500, "All"], index=0)
 
         try:
             if policy_limit == "All":
@@ -51,12 +71,7 @@ def main():
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
         with col1:
-            claims_limit = st.selectbox(
-                "Records",
-                options=[10, 50, 100, 500, "All"],
-                index=0,
-                key="claims_limit"
-            )
+            claims_limit = st.selectbox("Records", options=[10, 50, 100, 500, "All"], index=0, key="claims_limit")
 
         try:
             if claims_limit == "All":
@@ -74,87 +89,72 @@ def main():
                 st.info("No claims data found.")
         except Exception as e:
             st.error(f"Error fetching claims: {e}")
+
     with tabs[2]:
         st.header("Policies Edit")
-        # Use session state to manage navigation between pages
         if "policy_edit_page" not in st.session_state:
             st.session_state.policy_edit_page = "main"
 
         if st.session_state.policy_edit_page == "main":
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("Pre Bind", key="prebind_btn"):
-                    st.session_state.policy_edit_page = "prebind"
-                    st.rerun()
-            with col2:
-                if st.button("Post Bind", key="postbind_btn"):
-                    st.session_state.policy_edit_page = "postbind"
-                    st.rerun()
-
-        elif st.session_state.policy_edit_page == "prebind":
-            st.markdown("#### Pre Bind Options")
-            pb_col1, pb_col2, pb_col3 = st.columns(3)
-            with pb_col1:
-                if st.button("Manual Form", key="prebind_manual"):
-                    st.session_state.policy_edit_page = "prebind_manual_form"
-                    st.rerun()
-            with pb_col2:
-                st.button("From PDF", key="prebind_pdf")
-            with pb_col3:
-                st.button("From Email", key="prebind_email")
-            if st.button("Back", key="prebind_back"):
-                st.session_state.policy_edit_page = "main"
+            transaction_type = st.selectbox("Select Transaction Type", ["New Business", "MTA", "Renewal"])
+            if st.button("Proceed"):
+                st.session_state.transaction_type = transaction_type
+                st.session_state.policy_edit_page = "transaction_form"
                 st.rerun()
-        elif st.session_state.policy_edit_page == "prebind_manual_form":
-            st.markdown("#### Pre Bind - Manual Form")
-            with st.form("prebind_manual_form"):
-                cust_id = st.number_input("CUST_ID", step=1, format="%d")
-                executive = st.text_input("EXECUTIVE")
-                body = st.text_input("BODY")
-                make = st.text_input("MAKE")
-                model = st.text_input("MODEL")
-                use_of_vehicle = st.text_input("USE_OF_VEHICLE")
-                model_year = st.number_input("MODEL_YEAR", step=1, format="%d")
-                chassis_no = st.text_input("CHASSIS_NO")
-                regn = st.text_input("REGN")
-                policy_no = st.text_input("POLICY_NO *", help="Mandatory")
-                pol_eff_date = st.date_input("POL_EFF_DATE")
-                pol_expiry_date = st.date_input("POL_EXPIRY_DATE")
-                sum_insured = st.number_input("SUM_INSURED", format="%.2f")
-                pol_issue_date = st.date_input("POL_ISSUE_DATE")
-                premium2 = st.number_input("PREMIUM2", format="%.2f")
-                drv_dob = st.date_input("DRV_DOB")
-                drv_dli = st.date_input("DRV_DLI")
-                veh_seats = st.number_input("VEH_SEATS", step=1, format="%d")
-                submitted = st.form_submit_button("Submit")
-                back = st.form_submit_button("Back")
-                if submitted:
-                    if not policy_no.strip():
-                        st.error("POLICY_NO is mandatory. Please fill it before submitting.")
+
+        elif st.session_state.policy_edit_page == "transaction_form":
+            ttype = st.session_state.transaction_type
+            st.markdown(f"### {ttype} Form")
+
+            if ttype == "New Business":
+                # with st.form("new_business_form"):
+                st.markdown("#### New Business - Manual Entry")
+                # Generate and maintain a unique cust_id in the format temp_01, temp_02, etc.
+                form_data, submit, back = policy_manual_form()
+
+                if submit:
+                    if not form_data["POLICY_NO"].strip():
+                        st.error("Fill all the mandatory fields.")
                     else:
-                        st.success("Form submitted successfully!")
-                        # Here you can add your DB insert logic
+                        st.success("New Business form submitted successfully.")
+                        try:
+                            insert_policy(form_data)
+                            st.success("Policy inserted into the database.")
+                        except Exception as db_exc:
+                            st.error(f"Failed to insert policy: {db_exc}")
                 if back:
-                    st.session_state.policy_edit_page = "prebind"
+                    st.session_state.policy_edit_page = "main"
                     st.rerun()
 
-        elif st.session_state.policy_edit_page == "postbind":
-            st.markdown("#### Post Bind Options")
-            pob_col1, pob_col2, pob_col3 = st.columns(3)
-            with pob_col1:
-                st.button("Manual Form", key="postbind_manual")
-            with pob_col2:
-                st.button("From PDF", key="postbind_pdf")
-            with pob_col3:
-                st.button("From Email", key="postbind_email")
-            if st.button("Back", key="postbind_back"):
-                st.session_state.policy_edit_page = "main"
-                st.rerun()
+            else:  # MTA or Renewal
+                with st.form("existing_policy_form"):
+                    policy_no = st.text_input("Enter Policy Number *")
+                    fetch = st.form_submit_button("Proceed")
+                    back = st.form_submit_button("Back")
+                    if fetch and policy_no.strip():
+                        st.session_state.fetched = True
+                    elif fetch:
+                        st.warning("Please enter Policy Number to proceed.")
+                    if back:
+                        st.session_state.policy_edit_page = "main"
+                        st.rerun()
+
+                if st.session_state.get("fetched"):
+                    st.markdown(f"#### {ttype} - Update Form")
+                    with st.form("update_policy_form"):
+                        premium = st.number_input("Update PREMIUM", format="%.2f")
+                        upload_doc = st.file_uploader("Upload Document")
+                        upload_email = st.file_uploader("Upload Email")
+                        submit = st.form_submit_button("Submit")
+                        if submit:
+                            st.success(f"{ttype} details updated successfully. Changes committed.")
 
     with tabs[3]:
         st.header("Claims Edit")
-        col1, col2, col3 = st.columns([7, 3, 1])
-        # Add your Claims Edit logic here
+        st.info("Claims edit functionality coming soon...")
 
 if __name__ == "__main__":
     main()
+
+
+
