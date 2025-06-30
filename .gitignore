@@ -1,2 +1,4 @@
 /.venv
 /.vscode
+/utils/__pycache__/*.pyc
+/utils/*.pyc
