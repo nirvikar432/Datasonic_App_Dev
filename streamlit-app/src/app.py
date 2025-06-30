@@ -7,24 +7,6 @@ import os
 # Set browser tab title and page config
 st.set_page_config(page_title="Datasonic Policy Portal", page_icon="📝", layout="wide")
 
-# CSS
-# st.markdown(
-#     """
-#     <style>
-#         body, .stApp {
-#             background-color: #f8f9fa !important;
-#         }
-#         .stTextInput > div > div > input, .stSelectbox > div > div > div {
-#             background-color: #fff !important;
-#             color: #black !important;
-#         }
-#         .stDataFrame, .stTable {
-#             background-color: #fff !important;
-#         }
-#     </style>
-#     """,
-#     unsafe_allow_html=True
-# )
 
 # Add the utils directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
@@ -35,29 +17,39 @@ from policy_forms import policy_manual_form
 def main():
     st.title("Policy and Claims Management")
     tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit"])
+
     with tabs[0]:
         st.header("Policies")
+        # Fetch data first
+        # policy_query = "SELECT * FROM Policy WHERE isCancelled = 0"
+        policy_query = "SELECT TOP 20 * FROM Policy WHERE isCancelled = 0"
+        policies = fetch_data(policy_query)
+        df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()
+
         col1, col2, col3 = st.columns([7, 3, 1])
+        with col1:
+            page_size = st.selectbox(
+                "Records per page",
+                options=[10, 25, 50, 100, len(df_policies) if len(df_policies) > 0 else 1],
+                index=0,
+                key="policy_page_size", label_visibility="collapsed", placeholder="Records per page"
+            )
         with col2:
-            policy_search = st.text_input("Search", key="policy_search", placeholder="Search", label_visibility="hidden")
+            search_col1, search_col2 = st.columns([4, 1])
+            policy_search = search_col1.text_input("Search", key="policy_search", placeholder="Search", label_visibility="collapsed")
+            search_button = search_col2.button("🔎", key="policy_search_button")
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
-        with col1:
-            policy_limit = st.selectbox("Records", options=[10, 50, 100, 500, "All"], index=0)
 
         try:
-            if policy_limit == "All":
-                policy_query = "SELECT * FROM Policy"
-            else:
-                policy_query = f"SELECT TOP {policy_limit} * FROM Policy"
-            policies = fetch_data(policy_query)
-            df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()
+            # isCancelled no need
+            if "isCancelled" in df_policies.columns:
+                df_policies = df_policies.drop(columns=["isCancelled"])
             if policy_search and not df_policies.empty:
                 mask = df_policies.apply(lambda row: row.astype(str).str.contains(policy_search, case=False, na=False).any(), axis=1)
                 df_policies = df_policies[mask]
 
             # --- Pagination ---
-            page_size = 10  # Number of records per page
             if not df_policies.empty:
                 total_rows = len(df_policies)
                 total_pages = (total_rows - 1) // page_size + 1
@@ -73,26 +65,34 @@ def main():
 
     with tabs[1]:
         st.header("Claims")
+        # Always fetch all records, then paginate in pandas
+        # claims_query = "SELECT * FROM Claims"
+        claims_query = "SELECT TOP 20 * FROM Claims"
+        claims = fetch_data(claims_query)
+        df_claims = pd.DataFrame(claims) if claims else pd.DataFrame()
+
         col1, col2, col3 = st.columns([7, 3, 1])
+        with col1:
+            page_size = st.selectbox(
+                "Records per page",
+                options=[10, 25, 50, 100, 500, len(df_claims) if len(df_claims) > 0 else 1],
+                index=0,
+                key="claims_page_size"
+            )
         with col2:
-            claims_search = st.text_input("Search", key="claims_search", placeholder="Search", label_visibility="hidden")
+            search_col1, search_col2 = st.columns([3, 1])
+            claims_search = search_col1.text_input("Search", key="claims_search", placeholder="Search", label_visibility="hidden")
+            claims_search_button = search_col2.button("Search", key="claims_search_button")
         with col3:
             st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
-        with col1:
-            claims_limit = st.selectbox("Records", options=[10, 50, 100, 500, "All"], index=0, key="claims_limit")
+        
 
         try:
-            if claims_limit == "All":
-                claims_query = "SELECT * FROM Claims"
-            else:
-                claims_query = f"SELECT TOP {claims_limit} * FROM Claims"
-            claims = fetch_data(claims_query)
-            df_claims = pd.DataFrame(claims) if claims else pd.DataFrame()
+
             if claims_search and not df_claims.empty:
                 mask = df_claims.apply(lambda row: row.astype(str).str.contains(claims_search, case=False, na=False).any(), axis=1)
                 df_claims = df_claims[mask]
             # --- Pagination ---
-            page_size = 10  # Number of records per page
             if not df_claims.empty:
                 total_rows = len(df_claims)
                 total_pages = (total_rows - 1) // page_size + 1
