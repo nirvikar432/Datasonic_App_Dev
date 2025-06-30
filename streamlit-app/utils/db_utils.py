@@ -54,3 +54,14 @@ def update_policy(policy_no, update_fields):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def execute_query(query):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query)
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
