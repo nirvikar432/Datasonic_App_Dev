@@ -1,6 +1,9 @@
 import streamlit as st
 from policy_forms import policy_manual_form
 from db_utils import insert_policy, update_policy, fetch_data
+import time
+from datetime import datetime
+from datetime import date 
 
 def policy_edit_tab():
     st.header("Policy Edit")
@@ -80,7 +83,6 @@ def policy_edit_tab():
                         st.rerun()
             else:
                 policy_data = st.session_state.cancel_policy_data
-                from datetime import date
                 with st.form("cancel_policy_form"):
                     # Show all fields, only premium is editable
                     for key, value in policy_data.items():
@@ -108,14 +110,14 @@ def policy_edit_tab():
                             st.warning("This action will permanently cancel the policy. Click 'Submit Cancellation' again to proceed.")
                         else:
                             try:
-                                # premium_val = float(new_premium) if new_premium is not None else 0
                                 negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
                                 update_policy(
                                     policy_data["POLICY_NO"],
                                     {
                                         "isCancelled": 1,
-                                        "PREMIUM2": str(negative_premium),
-                                        "CANCELLATION_DATE": str(cancel_date)
+                                        "PREMIUM2": int(negative_premium),
+                                        "CANCELLATION_DATE": str(cancel_date),
+                                        "TransactionType": "Policy Cancellation"
                                     }
                                 )
                                 st.success(f"Policy {policy_data['POLICY_NO']} cancelled successfully.")
@@ -171,7 +173,7 @@ def policy_edit_tab():
                     "POLICY_NO", "CHASSIS_NO", "POL_EFF_DATE", "POL_EXPIRY_DATE"
                 ]
                 editable_fields = [
-                    "SUM INSURED", "PREMIUM2", "USE_OF_VEHICLE", "VEH_SEATS", "PRODUCT",
+                    "SUM INSURED","DRV_DOB", "DRV_DLI", "PREMIUM2", "USE_OF_VEHICLE", "VEH_SEATS", "PRODUCT",
                     "POLICYTYPE", "BODY", "MAKE", "MODEL", "USE_OF_VEHICLE", "MODEL_YEAR", "REGN"
                 ]
                 # Normalize keys for matching
@@ -182,6 +184,9 @@ def policy_edit_tab():
                     for key, value in policy_data.items():
                         input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
                         key_norm = key.replace(" ", "").lower()
+                        # Do not show Transaction Type and isLapsed fields
+                        if key_norm in ["transactiontype", "islapsed"]:
+                            continue
                         if key_norm in non_editable_keys:
                             st.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
                         elif key_norm in editable_keys:
@@ -205,6 +210,8 @@ def policy_edit_tab():
                                 new_val = value
                             if str(new_val) != str(value):
                                 edit_fields[key] = new_val
+                            # Always update TransactionType for MTA
+                            edit_fields["TransactionType"] = "MTA"
                         if edit_fields:
                             try:
                                 update_policy(policy_data["POLICY_NO"], edit_fields)
@@ -266,8 +273,13 @@ def policy_edit_tab():
                             except Exception:
                                 new_year = value
                             st.text_input(f"{key}", value=str(new_year), key=input_key, disabled=True)
-                        elif key.lower() in ["cancellation_date", "iscancelled"]:
-                            continue  # Skip cancellation date and isCancelled field
+                        elif key.lower() == "pol_issue_date":
+                            # Set POL_ISSUE_DATE as current date (uneditable)
+                            today_str = str(date.today())
+                            st.text_input("POL_ISSUE_DATE", value=today_str, key=input_key, disabled=True)
+
+                        # elif key.lower() in ["cancellation_date", "iscancelled", "transactiontype", "islapsed"]:
+                        #     continue  # Skip cancellation date, isCancelled, transactiontype, isLapsed fields
                         else:
                             st.text_input(f"{key}", value=str(value), key=input_key)
 
@@ -283,10 +295,14 @@ def policy_edit_tab():
                                     new_val = str(int(value) + 1)
                                 except Exception:
                                     new_val = str(value)
+                            elif key.lower() == "pol_issue_date":
+                                new_val = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             else:
                                 new_val = st.session_state[input_key]
                             if str(new_val) != str(value):
                                 edit_fields[key] = new_val
+                        # Always update TransactionType for Renewal
+                        edit_fields["TransactionType"] = "Renewal"
                         if edit_fields:
                             try:
                                 update_policy(policy_data["POLICY_NO"], edit_fields)
