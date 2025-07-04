@@ -14,9 +14,9 @@ from edit_tabs import policy_edit_tab, claims_edit_tab
 from charts_tab import charts_tab
 
 # --- Custom Theme ---
-from theme import set_custom_theme
+# from theme import set_custom_theme
 
-set_custom_theme()
+# set_custom_theme()
 
 st.set_page_config(
     page_title="Datasonic Policy Portal",
@@ -28,7 +28,7 @@ st.set_page_config(
 
 def main():
     st.title("Policy and Claims Management")
-    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit", "Charts"])
+    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit", "Analytics"])
 
     with tabs[0]:
         policy_tab()

@@ -2,7 +2,7 @@ import streamlit as st
 from policy_forms import policy_manual_form
 from db_utils import insert_policy, update_policy, fetch_data
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import date 
 
 def policy_edit_tab():
@@ -21,30 +21,40 @@ def policy_edit_tab():
         ttype = st.session_state.transaction_type
         st.markdown(f"### {ttype} Form")
 
+        # if "temp_policy_no" not in st.session_state:
+        #     # You can use a prefix and increment, or fetch the max from DB if needed
+        #     last_temp = st.session_state.get("last_temp_policy_no", 1000)
+        #     st.session_state.temp_policy_no = f"TEMP{last_temp + 1}"
+        #     st.session_state.last_temp_policy_no = last_temp + 1
+
         if ttype == "New Business":
-            # st.markdown("#### New Business Form")
             form_data, submit, back = policy_manual_form()
 
-            # --- Progress Bar for New Business Form ---
-            if form_data:
-                total_fields = len(form_data)
-                filled_fields = sum(1 for v in form_data.values() if str(v).strip())
-                progress = min(filled_fields / total_fields, 1.0) if total_fields > 0 else 0
-                st.progress(progress, text=f"Form completion: {int(progress*100)}%")
+            # # --- Progress Bar for New Business Form ---
+            # if form_data:
+            #     total_fields = len(form_data)
+            #     filled_fields = sum(1 for v in form_data.values() if str(v).strip())
+            #     progress = min(filled_fields / total_fields, 1.0) if total_fields > 0 else 0
+            #     st.progress(progress, text=f"Form completion: {int(progress*100)}%")
 
             if submit:
                 if not form_data["POLICY_NO"].strip():
                     st.error("Fill all the mandatory fields.")
                 else:
+                    form_data["TransactionType"] = "New Business"  # Set type
                     st.success("New Business form submitted successfully.")
                     try:
                         insert_policy(form_data)
                         st.success("Policy inserted into the database.")
+                        # # Increment temp policy number for next use
+                        # st.session_state.temp_policy_no = f"TEMP{int(st.session_state.temp_policy_no[4:]) + 1}"
+                        # st.session_state.last_temp_policy_no = int(st.session_state.temp_policy_no[4:])
                     except Exception as db_exc:
                         st.error(f"Failed to insert policy: {db_exc}")
             if back:
                 st.session_state.policy_edit_page = "main"
                 st.rerun()
+
         elif ttype == "Pre-Bind":
             st.markdown("#### Pre-Bind Form")
         
@@ -66,9 +76,11 @@ def policy_edit_tab():
                             query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
                             result = fetch_data(query)
                             if result:
-                                # Show already cancelled warning at initial state
+                                # Show already cancelled or Lapsed warning at initial state
                                 if result[0].get("isCancelled", 0) == 1:
                                     st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                                elif result[0].get("isLapsed", 0) == 1:
+                                    st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
                                 else:
                                     st.session_state.cancel_policy_fetched = True
                                     st.session_state.cancel_policy_data = result[0]
@@ -91,8 +103,8 @@ def policy_edit_tab():
                             continue
                         elif key.lower() == "cancellation_date":
                             cancel_date = st.date_input("Cancellation Date", value=date.today(), key="cancel_date")
-                        elif key.lower() == "iscancelled":
-                            continue  # Don't show isCancelled
+                        elif key.lower() in ["iscancelled", "transactiontype", "islapsed"]:
+                            continue  # Don't show isCancelled, TransactionType, and isLapsed
                         else:
                             st.text_input(key, value=str(value), disabled=True, key=f"cancel_{key}")
                     
@@ -150,9 +162,15 @@ def policy_edit_tab():
                         query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
                         result = fetch_data(query)
                         if result:
-                            st.session_state.fetched = True
-                            st.session_state.policy_data = result[0]
-                            st.session_state.edit_fields = {}
+                            # Show already cancelled or Lapsed warning at initial state
+                            if result[0].get("isCancelled", 0) == 1:
+                                st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                            elif result[0].get("isLapsed", 0) == 1:
+                                st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
+                            else:
+                                st.session_state.fetched = True
+                                st.session_state.policy_data = result[0]
+                                st.session_state.edit_fields = {}
                         else:
                             st.warning("No policy found with that number.")
                     elif fetch:
@@ -244,9 +262,15 @@ def policy_edit_tab():
                         query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
                         result = fetch_data(query)
                         if result:
-                            st.session_state.fetched = True
-                            st.session_state.policy_data = result[0]
-                            st.session_state.edit_fields = {}
+                            # Show already cancelled or Lapsed warning at initial state
+                            if result[0].get("isCancelled", 0) == 1:
+                                st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                            elif result[0].get("isLapsed", 0) == 1:
+                                st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
+                            else:
+                                st.session_state.fetched = True
+                                st.session_state.policy_data = result[0]
+                                st.session_state.edit_fields = {}
                         else:
                             st.warning("No policy found with that number.")
                     elif fetch:
@@ -266,20 +290,24 @@ def policy_edit_tab():
                 with st.form("update_policy_form"):
                     for key, value in policy_data.items():
                         input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
+
+                        if key.lower() in ["islapsed", "transactiontype","cancellation_date", "iscancelled"]:
+                            continue  # Field is hidden from the user
                         # Detect year fields
                         if key.lower() in ["pol_eff_date", "pol_expiry_date"]:
                             try:
-                                new_year = int(value) + 1
+                                # Parse the date string to a date object
+                                date_obj = datetime.strptime(str(value), "%Y-%m-%d")
+                                # Add one year (365 days, or use replace for exact year increment)
+                                new_date = date_obj.replace(year=date_obj.year + 1)
+                                new_date_str = new_date.strftime("%Y-%m-%d")
                             except Exception:
-                                new_year = value
-                            st.text_input(f"{key}", value=str(new_year), key=input_key, disabled=True)
+                                new_date_str = str(value)
+                            st.text_input(f"{key}", value=new_date_str, key=input_key, disabled=True)
                         elif key.lower() == "pol_issue_date":
                             # Set POL_ISSUE_DATE as current date (uneditable)
                             today_str = str(date.today())
                             st.text_input("POL_ISSUE_DATE", value=today_str, key=input_key, disabled=True)
-
-                        # elif key.lower() in ["cancellation_date", "iscancelled", "transactiontype", "islapsed"]:
-                        #     continue  # Skip cancellation date, isCancelled, transactiontype, isLapsed fields
                         else:
                             st.text_input(f"{key}", value=str(value), key=input_key)
 
@@ -289,16 +317,26 @@ def policy_edit_tab():
                         # Collect all fields except year fields (since they are uneditable)
                         for key, value in policy_data.items():
                             input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
+                            # Skip hidden fields
+                            if key.lower() in ["islapsed", "transactiontype", "cancellation_date", "iscancelled"]:
+                                continue
                             if key.lower() in ["start_year", "end_year"]:
-                                # Use incremented value
                                 try:
                                     new_val = str(int(value) + 1)
                                 except Exception:
                                     new_val = str(value)
                             elif key.lower() == "pol_issue_date":
                                 new_val = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            elif key.lower() in ["pol_eff_date", "pol_expiry_date"]:
+                                # These are disabled, so use the incremented value from above
+                                try:
+                                    date_obj = datetime.strptime(str(value), "%Y-%m-%d")
+                                    new_date = date_obj.replace(year=date_obj.year + 1)
+                                    new_val = new_date.strftime("%Y-%m-%d")
+                                except Exception:
+                                    new_val = str(value)
                             else:
-                                new_val = st.session_state[input_key]
+                                new_val = st.session_state.get(input_key, value)
                             if str(new_val) != str(value):
                                 edit_fields[key] = new_val
                         # Always update TransactionType for Renewal

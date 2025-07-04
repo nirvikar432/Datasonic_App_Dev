@@ -1,4 +1,5 @@
 /.venv
 /.vscode
-/utils/__pycache__/*.pyc
-/utils/*.pyc
+/utils/__pycache__/
+/utils/
+src/__pycache__/
