@@ -28,21 +28,10 @@ def policy_edit_tab():
         ttype = st.session_state.transaction_type
         st.markdown(f"### {ttype} Form")
 
-        # if "temp_policy_no" not in st.session_state:
-        #     # You can use a prefix and increment, or fetch the max from DB if needed
-        #     last_temp = st.session_state.get("last_temp_policy_no", 1000)
-        #     st.session_state.temp_policy_no = f"TEMP{last_temp + 1}"
-        #     st.session_state.last_temp_policy_no = last_temp + 1
 
         if ttype == "New Business":
             form_data, submit, back = policy_manual_form()
 
-            # # --- Progress Bar for New Business Form ---
-            # if form_data:
-            #     total_fields = len(form_data)
-            #     filled_fields = sum(1 for v in form_data.values() if str(v).strip())
-            #     progress = min(filled_fields / total_fields, 1.0) if total_fields > 0 else 0
-            #     st.progress(progress, text=f"Form completion: {int(progress*100)}%")
 
             if submit:
                 if not form_data["POLICY_NO"].strip():
@@ -53,9 +42,6 @@ def policy_edit_tab():
                     try:
                         insert_policy(form_data)
                         st.success("Policy inserted into the database.")
-                        # # Increment temp policy number for next use
-                        # st.session_state.temp_policy_no = f"TEMP{int(st.session_state.temp_policy_no[4:]) + 1}"
-                        # st.session_state.last_temp_policy_no = int(st.session_state.temp_policy_no[4:])
                     except Exception as db_exc:
                         st.error(f"Failed to insert policy: {db_exc}")
             if back:
@@ -114,7 +100,7 @@ def policy_edit_tab():
                 
                 if convert_policy:
                     # Navigate to policy conversion
-                    st.session_state.policy_edit_page = "convert_policy"
+                    st.session_state.prebind_step = "convert_policy"
                     st.rerun()
                 
                 if back_to_form:
@@ -132,46 +118,45 @@ def policy_edit_tab():
                     if "quotation_data" in st.session_state:
                         del st.session_state.quotation_data
                     st.rerun()
-
-        elif st.session_state.policy_edit_page == "convert_policy":
-            st.markdown("#### Convert Quotation to Policy")
-            quotation_data = st.session_state.quotation_data
             
-            # Convert quotation data to policy form defaults
-            policy_defaults = convert_quotation_to_policy_data(quotation_data)
-            
-            # Use policy manual form with pre-filled data
-            form_data, submit, back = policy_manual_form(defaults=policy_defaults)
-            
-            if submit:
-                if not form_data["POLICY_NO"].strip():
-                    st.error("Please enter a Policy Number.")
-                else:
-                    form_data["TransactionType"] = "New Business"
-                    form_data["CONVERTED_FROM_TEMP"] = quotation_data["TEMP_POLICY_ID"]
-                    
-                    try:
-                        insert_policy(form_data)
-                        # Mark quotation as converted
-                        mark_quotation_converted(quotation_data["TEMP_POLICY_ID"], form_data["POLICY_NO"])
-                        st.success(f"Policy {form_data['POLICY_NO']} created successfully from quotation!")
-                        time.sleep(2)
-                        
-                        # Clean up session state
-                        st.session_state.policy_edit_page = "main"
-                        st.session_state.prebind_step = "quotation_form"
-                        if "temp_policy_id" in st.session_state:
-                            del st.session_state.temp_policy_id
-                        if "quotation_data" in st.session_state:
-                            del st.session_state.quotation_data
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to create policy: {e}")
-            
-            if back:
-                st.session_state.prebind_step = "quotation_summary"
-                st.session_state.policy_edit_page = "transaction_form"
-                st.rerun()
+            elif st.session_state.prebind_step == "convert_policy":
+                st.markdown("#### Convert Quotation to Policy")
+                quotation_data = st.session_state.quotation_data
+                
+                # Convert quotation data to policy form defaults
+                policy_defaults = convert_quotation_to_policy_data(quotation_data)
+                
+                # Use policy manual form with pre-filled data
+                form_data, submit, back = policy_manual_form(defaults=policy_defaults)
+                
+                if submit:
+                    if not form_data["POLICY_NO"].strip():
+                        st.error("Please enter a Policy Number.")
+                    else:
+                        form_data["TransactionType"] = "New Business"
+                        # Optional: Store TEMP_POLICY_ID if needed but need to be created as a new policy
+                        # form_data["CONVERTED_FROM_TEMP"] = quotation_data["TEMP_POLICY_ID"] 
+                        try:
+                            insert_policy(form_data)
+                            # Mark quotation as converted
+                            mark_quotation_converted(quotation_data["TEMP_POLICY_ID"], form_data["POLICY_NO"])
+                            st.success(f"Policy {form_data['POLICY_NO']} created successfully from quotation!")
+                            time.sleep(2)
+                            
+                            # Clean up session state
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.prebind_step = "quotation_form"
+                            if "temp_policy_id" in st.session_state:
+                                del st.session_state.temp_policy_id
+                            if "quotation_data" in st.session_state:
+                                del st.session_state.quotation_data
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to create policy: {e}")
+                
+                if back:
+                    st.session_state.prebind_step = "quotation_summary"
+                    st.rerun()
         
         elif ttype == "Policy Cancellation":
             # Step 1: Enter Policy Number

@@ -72,8 +72,8 @@ def insert_quotation(quotation_data):
     Insert a new quotation record into the Quotations table
     """
     try:
-        connection = get_connection()
-        cursor = connection.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
         # Prepare the SQL insert statement
         insert_query = """
@@ -120,16 +120,16 @@ def insert_quotation(quotation_data):
         
         # Execute the query
         cursor.execute(insert_query, values)
-        connection.commit()
+        conn.commit()
         print(f"Quotation {quotation_data.get('TEMP_POLICY_ID')} inserted successfully.")
         
     except Exception as e:
-        connection.rollback()
+        conn.rollback()
         print(f"Error inserting quotation: {e}")
         raise e
     finally:
         cursor.close()
-        connection.close()
+        conn.close()
 
 
 def update_quotation(temp_policy_id, updates):
@@ -137,8 +137,8 @@ def update_quotation(temp_policy_id, updates):
     Update an existing quotation record
     """
     try:
-        connection = get_connection()
-        cursor = connection.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
         # Build the SET clause dynamically based on provided updates
         set_clauses = []
@@ -161,20 +161,20 @@ def update_quotation(temp_policy_id, updates):
         """
         
         cursor.execute(update_query, values)
-        connection.commit()
-        
+        conn.commit()
+
         if cursor.rowcount > 0:
             print(f"Quotation {temp_policy_id} updated successfully.")
         else:
             print(f"No quotation found with TEMP_POLICY_ID: {temp_policy_id}")
             
     except Exception as e:
-        connection.rollback()
+        conn.rollback()
         print(f"Error updating quotation: {e}")
         raise e
     finally:
         cursor.close()
-        connection.close()
+        conn.close()
 
 
 def fetch_quotation_by_temp_id(temp_policy_id):
@@ -182,9 +182,9 @@ def fetch_quotation_by_temp_id(temp_policy_id):
     Fetch a specific quotation by TEMP_POLICY_ID
     """
     try:
-        connection = get_connection()
-        cursor = connection.cursor()
-        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
         query = "SELECT * FROM Quotations WHERE TEMP_POLICY_ID = ?"
         cursor.execute(query, (temp_policy_id,))
         
@@ -201,7 +201,7 @@ def fetch_quotation_by_temp_id(temp_policy_id):
         raise e
     finally:
         cursor.close()
-        connection.close()
+        conn.close()
 
 
 def fetch_quotation_history(cust_id, limit=10):
@@ -209,9 +209,9 @@ def fetch_quotation_history(cust_id, limit=10):
     Fetch quotation history for a specific customer
     """
     try:
-        connection = get_connection()
-        cursor = connection.cursor()
-        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
         query = """
         SELECT TEMP_POLICY_ID, CREATED_DATE, COVERAGE_TYPE, PREMIUM_ESTIMATE, 
                STATUS, VALIDITY_PERIOD, VALIDITY_EXPIRY, MAKE, MODEL
@@ -235,7 +235,7 @@ def fetch_quotation_history(cust_id, limit=10):
         return []
     finally:
         cursor.close()
-        connection.close()
+        conn.close()
 
 
 def fetch_all_quotations(status=None, limit=100):
@@ -243,9 +243,9 @@ def fetch_all_quotations(status=None, limit=100):
     Fetch all quotations with optional status filter
     """
     try:
-        connection = get_connection()
-        cursor = connection.cursor()
-        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
         base_query = """
         SELECT TEMP_POLICY_ID, CUST_ID, CUST_NAME, EXECUTIVE, MAKE, MODEL,
                COVERAGE_TYPE, PREMIUM_ESTIMATE, STATUS, CREATED_DATE, VALIDITY_EXPIRY
@@ -273,7 +273,7 @@ def fetch_all_quotations(status=None, limit=100):
         return []
     finally:
         cursor.close()
-        connection.close()
+        conn.close()
 
 
 def mark_quotation_converted(temp_policy_id, policy_no):

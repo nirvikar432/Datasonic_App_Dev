@@ -37,8 +37,6 @@ def policy_tab():
             # Show caption above the table
             st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
             # Show table
-            # st.dataframe(df_policies.iloc[start_idx:end_idx])
-            # st.dataframe(df_policies.iloc[start_idx:end_idx].reset_index(drop=True))
             # Set index to start from 1
             display_df = df_policies.iloc[start_idx:end_idx].reset_index(drop=True)
             display_df.index = display_df.index + 1

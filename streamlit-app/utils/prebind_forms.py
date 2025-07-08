@@ -203,6 +203,7 @@ def quotation_action_buttons():
     return download_pdf, send_quote, convert_policy, back_to_form
 
 
+
 def quotation_history_display(cust_id):
     """
     Display quotation history for a customer
@@ -210,22 +211,106 @@ def quotation_history_display(cust_id):
     st.markdown("---")
     st.subheader("Quotation History")
     
-    # TODO: Implement quotation history fetch based on CUST_ID
-    # For now, show placeholder
     if cust_id:
-        st.info(f"Previous quotations for Customer ID: {cust_id} will be displayed here.")
-        
-        # Placeholder table structure
-        import pandas as pd
-        placeholder_data = {
-            "TEMP_POLICY_ID": ["TEMP_001", "TEMP_002"],
-            "Created Date": ["2024-01-15", "2024-02-10"],
-            "Coverage Type": ["COMPREHENSIVE", "THIRD PARTY"],
-            "Premium": ["₹15,000", "₹8,500"],
-            "Status": ["Expired", "Sent"],
-            "Validity": ["7 days", "15 days"]
-        }
-        st.dataframe(pd.DataFrame(placeholder_data), use_container_width=True)
+        try:
+            # Import database connection
+            from db_utils import get_db_connection
+            import pandas as pd
+            
+            # Connect to database and fetch quotation history
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                
+                # Query to fetch quotation history for the customer
+                query = """
+                SELECT 
+                    TEMP_POLICY_ID,
+                    CREATED_DATE,
+                    COVERAGE_TYPE,
+                    PREMIUM_ESTIMATE,
+                    STATUS,
+                    VALIDITY_PERIOD,
+                    VALIDITY_EXPIRY,
+                    MAKE,
+                    MODEL,
+                    PRODUCT_TYPE
+                FROM dbo.Quotations 
+                WHERE CUST_ID = ? 
+                ORDER BY CREATED_DATE DESC
+                """
+                
+                cursor.execute(query, (cust_id,))
+                results = cursor.fetchall()
+                
+                if results:
+                    # Convert results to DataFrame
+                    columns = [
+                        "TEMP_POLICY_ID", "Created Date", "Coverage Type", 
+                        "Premium", "Status", "Validity Period", "Expiry Date",
+                        "Make", "Model", "Product Type"
+                    ]
+                    
+                    # Format the data for display
+                    formatted_data = []
+                    for row in results:
+                        formatted_row = [
+                            row[0],  # TEMP_POLICY_ID
+                            row[1].strftime('%Y-%m-%d') if row[1] else '',  # CREATED_DATE
+                            row[2],  # COVERAGE_TYPE
+                            f"{row[3]:,.2f}" if row[3] else '',  # PREMIUM_ESTIMATE
+                            row[4],  # STATUS
+                            row[5],  # VALIDITY_PERIOD
+                            row[6].strftime('%Y-%m-%d') if row[6] else '',  # VALIDITY_EXPIRY
+                            row[7],  # MAKE
+                            row[8],  # MODEL
+                            row[9]   # PRODUCT_TYPE
+                        ]
+                        formatted_data.append(formatted_row)
+                    
+                    df = pd.DataFrame(formatted_data, columns=columns)
+                    
+                    # Display the dataframe with styling
+                    st.dataframe(
+                        df,
+                        use_container_width=True,
+                        column_config={
+                            "TEMP_POLICY_ID": st.column_config.TextColumn("Quote ID", width="medium"),
+                            "Created Date": st.column_config.DateColumn("Date", width="small"),
+                            "Coverage Type": st.column_config.TextColumn("Coverage", width="medium"),
+                            "Premium": st.column_config.TextColumn("Premium", width="small"),
+                            "Status": st.column_config.TextColumn("Status", width="small"),
+                            "Validity Period": st.column_config.TextColumn("Validity", width="small"),
+                            "Expiry Date": st.column_config.DateColumn("Expires", width="small"),
+                            "Make": st.column_config.TextColumn("Make", width="small"),
+                            "Model": st.column_config.TextColumn("Model", width="small"),
+                            "Product Type": st.column_config.TextColumn("Product", width="medium")
+                        }
+                    )
+                    
+                    # Display summary statistics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Quotes", len(results))
+                    with col2:
+                        active_quotes = len([r for r in results if r[4] == 'Active'])
+                        st.metric("Active Quotes", active_quotes)
+                    with col3:
+                        sent_quotes = len([r for r in results if r[4] == 'Sent'])
+                        st.metric("Sent Quotes", sent_quotes)
+                    with col4:
+                        expired_quotes = len([r for r in results if r[4] == 'Expired'])
+                        st.metric("Expired Quotes", expired_quotes)
+                        
+                else:
+                    st.info(f"No quotation history found for Customer ID: {cust_id}")
+                
+                cursor.close()
+                conn.close()
+                
+        except Exception as e:
+            st.error(f"Error fetching quotation history: {str(e)}")
+            st.info("Please check database connection and try again.")
     else:
         st.info("Enter Customer ID to view quotation history.")
 
@@ -234,8 +319,12 @@ def convert_quotation_to_policy_data(quotation_data):
     """
     Convert quotation data to policy form defaults
     """
-    return {
+    policy_defaults = {
         "CUST_ID": quotation_data.get("CUST_ID", ""),
+        "CUST_NAME": quotation_data.get("CUST_NAME", ""),
+        "CUST_DOB": quotation_data.get("CUST_DOB", date(1990, 1, 1)),
+        "CUST_CONTACT": quotation_data.get("CUST_CONTACT", ""),
+        "CUST_EMAIL": quotation_data.get("CUST_EMAIL", ""),
         "EXECUTIVE": quotation_data.get("EXECUTIVE", ""),
         "CHASSIS_NO": quotation_data.get("CHASSIS_NO", ""),
         "MAKE": quotation_data.get("MAKE", ""),
@@ -253,5 +342,67 @@ def convert_quotation_to_policy_data(quotation_data):
         "POL_EFF_DATE": date.today(),
         "POL_EXPIRY_DATE": date.today() + timedelta(days=365),
         "POL_ISSUE_DATE": date.today(),
-        "BODY": ""  # Add default for BODY field
+        "BODY": "",  # Add default for BODY field
+        "COVERAGE_TYPE": quotation_data.get("COVERAGE_TYPE", "")
     }
+    
+    # Store the policy defaults in session state for the policy form
+    st.session_state.policy_form_defaults = policy_defaults
+    st.session_state.converting_from_quotation = True
+    st.session_state.source_quote_id = quotation_data.get("TEMP_POLICY_ID", "")
+    
+    return policy_defaults
+
+
+def handle_convert_to_policy_action(quotation_data):
+    """
+    Handle the convert to policy button action
+    """
+    if st.button("🔄 Convert to Policy"):
+        # Convert quotation data to policy defaults
+        policy_defaults = convert_quotation_to_policy_data(quotation_data)
+        
+        # Show success message
+        st.success(f"✅ Quotation {quotation_data['TEMP_POLICY_ID']} ready for policy conversion!")
+        
+        # Display converted data preview
+        st.subheader("Policy Form Preview")
+        st.write("**The following data will be pre-filled in the policy form:**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Customer Information:**")
+            st.write(f"• Customer ID: {policy_defaults['CUST_ID']}")
+            st.write(f"• Name: {policy_defaults['CUST_NAME']}")
+            st.write(f"• Contact: {policy_defaults['CUST_CONTACT']}")
+            st.write(f"• Executive: {policy_defaults['EXECUTIVE']}")
+            
+        with col2:
+            st.write("**Vehicle Information:**")
+            st.write(f"• Make/Model: {policy_defaults['MAKE']} {policy_defaults['MODEL']}")
+            st.write(f"• Year: {policy_defaults['MODEL_YEAR']}")
+            st.write(f"• Chassis: {policy_defaults['CHASSIS_NO']}")
+            st.write(f"• Premium: ₹{policy_defaults['PREMIUM2']}")
+        
+        # Navigation buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("➡️ Go to Policy Form"):
+                st.session_state.page = "policy_form"
+                st.session_state.policy_form_defaults = policy_defaults
+                st.rerun()
+        
+        with col2:
+            if st.button("📝 Edit Quote First"):
+                st.session_state.page = "prebind_form"
+                st.session_state.prebind_form_defaults = quotation_data
+                st.rerun()
+        
+        with col3:
+            if st.button("❌ Cancel"):
+                st.session_state.page = "quotation_summary"
+                st.rerun()
+        
+        return True
+    
+    return False

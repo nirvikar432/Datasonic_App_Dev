@@ -18,26 +18,12 @@ from charts_tab import charts_tab
 
 # set_custom_theme()
 
-<<<<<<< HEAD
-=======
-# st.markdown("""
-#     <style>
-#         .block-container {
-#             padding-top: 0rem;
-#         }
-#         header {visibility: hidden;}
-#     </style>
-# """, unsafe_allow_html=True)
-
->>>>>>> d234247f5652040c06c2e1dcb0580bfb75030fb6
 st.markdown("""
     <style>
         .block-container {
             padding-top: 0rem;
-<<<<<<< HEAD
         }
         header {visibility: hidden;}
-=======
             padding-bottom: 0rem;
         }
         header {visibility: hidden;}
@@ -83,7 +69,6 @@ st.markdown("""
         .main .block-container {
             gap: 0rem;
         }
->>>>>>> d234247f5652040c06c2e1dcb0580bfb75030fb6
     </style>
 """, unsafe_allow_html=True)
 
