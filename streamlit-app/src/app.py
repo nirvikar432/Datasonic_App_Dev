@@ -18,12 +18,64 @@ from charts_tab import charts_tab
 
 # set_custom_theme()
 
+# st.markdown("""
+#     <style>
+#         .block-container {
+#             padding-top: 0rem;
+#         }
+#         header {visibility: hidden;}
+#     </style>
+# """, unsafe_allow_html=True)
+
 st.markdown("""
     <style>
         .block-container {
             padding-top: 0rem;
+            padding-bottom: 0rem;
         }
         header {visibility: hidden;}
+        
+        /* Reduce spacing between elements */
+        .element-container {
+            margin-bottom: -10px !important;
+        }
+        
+        /* Reduce margin for specific elements */
+        .stTextInput > div > div > input {
+            margin-bottom: 0px;
+        }
+        
+        /* Reduce spacing around dataframes */
+        .dataframe {
+            margin-top: -10px !important;
+            margin-bottom: -10px !important;
+        }
+        
+        /* Reduce spacing for search bars */
+        .stSelectbox > div > div {
+            margin-bottom: 0px;
+        }
+        
+        /* Reduce spacing between title and content */
+        h1, h2, h3 {
+            margin-bottom: 0rem !important;
+            margin-top: 0rem !important;
+        }
+        
+        /* Reduce tab content padding */
+        .stTabs > div > div > div > div {
+            padding-top: 0rem;
+        }
+        
+        /* Reduce spacing between form elements */
+        .stForm {
+            margin-bottom: 0px;
+        }
+        
+        /* General spacing reduction */
+        .main .block-container {
+            gap: 0rem;
+        }
     </style>
 """, unsafe_allow_html=True)
 
