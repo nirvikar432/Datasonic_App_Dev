@@ -18,9 +18,19 @@ from charts_tab import charts_tab
 
 # set_custom_theme()
 
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 0rem;
+        }
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 st.set_page_config(
-    page_title="Datasonic Policy Portal",
-    page_icon="📝",
+    page_title="Datasonic Orbit",
+    page_icon=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media', 'datasonic_orbit.ico')),
     layout="wide",
     initial_sidebar_state="auto",
     menu_items=None,

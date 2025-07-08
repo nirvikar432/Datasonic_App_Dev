@@ -116,6 +116,9 @@ def policy_edit_tab():
                     if submit_cancel:
                         if not confirm_cancel:
                             st.warning("Please confirm cancellation by checking the box before submitting.")
+                        # Validate return premium does not exceed original premium
+                        elif float(new_premium) > float(policy_data.get("PREMIUM2", 0)):
+                            st.error("Return Premium cannot exceed the original premium.")
                         # Double confirm before DB update
                         elif not st.session_state.get("cancel_final_confirm", False):
                             st.session_state.cancel_final_confirm = True
