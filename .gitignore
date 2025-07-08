@@ -3,3 +3,6 @@
 /utils/__pycache__/
 /utils/
 src/__pycache__/
+streamlit-app/src/__pycache__/*.pyc
+streamlit-app/utils/__pycache__/*.pyc
+streamlit-app/utils/__pycache__/db_utils.cpython-313.pyc
