@@ -7,7 +7,7 @@ from prebind_forms import (
     quotation_history_display,
     convert_quotation_to_policy_data
 )
-from db_utils import insert_policy, update_policy, fetch_data
+from db_utils import insert_policy, update_policy, fetch_data, insert_quotation, update_quotation, mark_quotation_converted
 import time
 from datetime import datetime, timedelta, date
 
@@ -77,8 +77,8 @@ def policy_edit_tab():
                         st.error(f"Please fill all mandatory fields: {', '.join(missing_fields)}")
                     else:
                         try:
-                            # TODO: Implement insert_quotation in db_utils
-                            # insert_quotation(form_data)
+                            # Insert quotation into database
+                            insert_quotation(form_data)
                             st.session_state.quotation_data = form_data
                             st.session_state.prebind_step = "quotation_summary"
                             st.success("Quotation generated successfully!")
@@ -152,8 +152,8 @@ def policy_edit_tab():
                     
                     try:
                         insert_policy(form_data)
-                        # TODO: Update quotation status to "Accepted" in database
-                        # update_quotation(quotation_data["TEMP_POLICY_ID"], {"STATUS": "Accepted"})
+                        # Mark quotation as converted
+                        mark_quotation_converted(quotation_data["TEMP_POLICY_ID"], form_data["POLICY_NO"])
                         st.success(f"Policy {form_data['POLICY_NO']} created successfully from quotation!")
                         time.sleep(2)
                         
