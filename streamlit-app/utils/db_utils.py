@@ -291,3 +291,33 @@ def mark_quotation_converted(temp_policy_id, policy_no):
     except Exception as e:
         print(f"Error marking quotation as converted: {e}")
         raise e
+    
+def insert_claim(claim_data):
+    """Insert new claim into database"""
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    columns = ', '.join(claim_data.keys())
+    placeholders = ', '.join(['?' for _ in claim_data])
+    values = tuple(claim_data.values())
+    
+    query = f"INSERT INTO Claims ({columns}) VALUES ({placeholders})"
+    cursor.execute(query, values)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def update_claim(claim_no, update_data):
+    """Update existing claim in database"""    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    set_clause = ', '.join([f"{key} = ?" for key in update_data.keys()])
+    values = tuple(update_data.values()) + (claim_no,)
+    
+    query = f"UPDATE Claims SET {set_clause} WHERE CLAIM_NO = ?"
+    cursor.execute(query, values)
+    conn.commit()
+    cursor.close()
+    conn.close()
