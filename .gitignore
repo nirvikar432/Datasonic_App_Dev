@@ -3,3 +3,11 @@
 /utils/__pycache__/
 /utils/
 src/__pycache__/
+streamlit-app/src/__pycache__/*.pyc
+/streamlit-app/src/__pycache__/*.pyo
+/streamlit-app/src/__pycache__/*.pyd
+/streamlit-app/src/__pycache__/
+streamlit-app/utils/__pycache__/*.pyc
+streamlit-app/utils/__pycache__/*.pyo
+streamlit-app/utils/__pycache__/*.pyd
+streamlit-app/utils/__pycache__/

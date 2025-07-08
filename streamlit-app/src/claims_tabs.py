@@ -33,7 +33,12 @@ def claims_tab():
             # Show caption above the table
             st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
             # Show table
-            st.dataframe(df_claims.iloc[start_idx:end_idx])
+            # st.dataframe(df_claims.iloc[start_idx:end_idx])
+            # Show table
+            # Set index to start from 1
+            display_df = df_claims.iloc[start_idx:end_idx].reset_index(drop=True)
+            display_df.index = display_df.index + 1
+            st.dataframe(display_df)
 
             # Show page size and page selection below the table
             space, col_page, space, col_size = st.columns([10, 2, 10, 2])
