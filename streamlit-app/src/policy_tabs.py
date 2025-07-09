@@ -4,7 +4,7 @@ from db_utils import fetch_data
 
 def policy_tab():
     st.header("Policies")
-    policy_query = "SELECT TOP 20 * FROM Policy WHERE isCancelled = 0 AND isLapsed = 0"
+    policy_query = "SELECT TOP 100 * FROM Policy"
     policies = fetch_data(policy_query)
     df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()
     
@@ -12,7 +12,7 @@ def policy_tab():
     col1, col2 = st.columns([7, 3])
     with col2:
         search_col1, search_col2 = st.columns([40, 10])
-        policy_search = search_col1.text_input("Search", key="policy_search", placeholder="Search", label_visibility="collapsed")
+        policy_search = search_col1.text_input("Search", key="policy_search", placeholder="Global Search", label_visibility="collapsed")
         search_button = search_col2.button("🔎", key="policy_search_button")
     with col1:
         st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
@@ -34,9 +34,9 @@ def policy_tab():
             start_idx = (page_num - 1) * page_size
             end_idx = start_idx + page_size
 
-            # Show caption above the table
+            # Caption
             st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
-            # Show table
+            # Table
             # Set index to start from 1
             display_df = df_policies.iloc[start_idx:end_idx].reset_index(drop=True)
             display_df.index = display_df.index + 1

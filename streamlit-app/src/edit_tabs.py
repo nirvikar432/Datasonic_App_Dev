@@ -1,4 +1,6 @@
 import streamlit as st
+from fpdf import FPDF
+import io
 from policy_forms import policy_manual_form
 from prebind_forms import (
     prebind_quotation_form, 
@@ -9,7 +11,7 @@ from prebind_forms import (
 )
 from db_utils import insert_policy, update_policy, fetch_data, insert_quotation, update_quotation, mark_quotation_converted, insert_claim, update_claim
 import time
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 
 
 def policy_edit_tab():
@@ -89,8 +91,22 @@ def policy_edit_tab():
                 download_pdf, send_quote, convert_policy, back_to_form = quotation_action_buttons()
                 
                 if download_pdf:
-                    # TODO: Implement PDF generation
-                    st.info("PDF generation feature coming soon!")
+                    # Generate PDF
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", size=12)
+                    pdf.cell(200, 10, txt="Quotation Summary", ln=True, align="C")
+                    pdf.ln(10)
+                    for key, value in quotation_data.items():
+                        pdf.cell(0, 10, f"{key}: {value}", ln=True)
+                    # Output PDF to bytes
+                    pdf_bytes = pdf.output(dest='S').encode('latin1')
+                    st.download_button(
+                        label="Download Quotation PDF",
+                        data=pdf_bytes,
+                        file_name=f"Quotation_{quotation_data.get('POLICY_NO', 'quotation')}.pdf",
+                        mime="application/pdf"
+                    )
                 
                 if send_quote:
                     # Update status to "Sent"
@@ -141,7 +157,7 @@ def policy_edit_tab():
                             # Mark quotation as converted
                             mark_quotation_converted(quotation_data["TEMP_POLICY_ID"], form_data["POLICY_NO"])
                             st.success(f"Policy {form_data['POLICY_NO']} created successfully from quotation!")
-                            time.sleep(2)
+                            time.sleep(5)
                             
                             # Clean up session state
                             st.session_state.policy_edit_page = "main"
@@ -159,7 +175,6 @@ def policy_edit_tab():
                     st.rerun()
         
         elif ttype == "Policy Cancellation":
-            # Step 1: Enter Policy Number
             if "cancel_policy_fetched" not in st.session_state:
                 st.session_state.cancel_policy_fetched = False
                 st.session_state.cancel_policy_data = None
@@ -197,16 +212,27 @@ def policy_edit_tab():
                 policy_data = st.session_state.cancel_policy_data
                 with st.form("cancel_policy_form"):
                     # Show all fields, only premium is editable
+                    col1, col2, col3 = st.columns(3)
+                    idx = 0
                     for key, value in policy_data.items():
                         if key.lower() == "premium2":
                             new_premium = st.text_input("Return Premium", value=str(value), key="cancel_edit_premium")
                             continue
                         elif key.lower() == "cancellation_date":
                             cancel_date = st.date_input("Cancellation Date", value=date.today(), key="cancel_date")
+                            continue
                         elif key.lower() in ["iscancelled", "transactiontype", "islapsed"]:
                             continue  # Don't show isCancelled, TransactionType, and isLapsed
                         else:
-                            st.text_input(key, value=str(value), disabled=True, key=f"cancel_{key}")
+                            # Alternate columns for 3-col layout
+                            if idx % 3 == 0:
+                                col = col1
+                            elif idx % 3 == 1:
+                                col = col2
+                            else:
+                                col = col3
+                            col.text_input(key, value=str(value), disabled=True, key=f"cancel_{key}")
+                            idx += 1
                     
 
                     confirm_cancel = st.checkbox("I confirm I want to cancel this policy", key="cancel_confirm")
@@ -302,6 +328,8 @@ def policy_edit_tab():
                 non_editable_keys = [k.replace(" ", "").lower() for k in non_editable_fields]
 
                 with st.form("update_mta_policy_form"):
+                    col1, col2, col3 = st.columns(3)
+                    idx = 0
                     for key, value in policy_data.items():
                         input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
                         key_norm = key.replace(" ", "").lower()
@@ -309,13 +337,21 @@ def policy_edit_tab():
                         if key_norm in ["transactiontype", "islapsed"]:
                             continue
                         if key_norm in non_editable_keys:
-                            st.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
+                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
                         elif key_norm in editable_keys:
-                            st.text_input(f"{key}", value=str(value), key=input_key)
+                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key)
                         elif key.lower() in ["cancellation_date", "iscancelled"]:
                             continue  # Skip cancellation date and isCancelled field
                         else:
-                            st.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
+                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
+                        # Alternate columns for 3-col layout
+                        if idx % 3 == 0:
+                            widget(col1)
+                        elif idx % 3 == 1:
+                            widget(col2)
+                        else:
+                            widget(col3)
+                        idx += 1
 
                     submit = st.form_submit_button("Submit")
                     back2 = st.form_submit_button("Back")
@@ -391,6 +427,8 @@ def policy_edit_tab():
 
                 # Render all fields with data, increment start and end year by +1, and make year fields uneditable
                 with st.form("update_policy_form"):
+                    col1, col2, col3 = st.columns(3)
+                    idx = 0
                     for key, value in policy_data.items():
                         input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
 
@@ -406,13 +444,21 @@ def policy_edit_tab():
                                 new_date_str = new_date.strftime("%Y-%m-%d")
                             except Exception:
                                 new_date_str = str(value)
-                            st.text_input(f"{key}", value=new_date_str, key=input_key, disabled=True)
+                            widget = lambda c: c.text_input(f"{key}", value=new_date_str, key=input_key, disabled=True)
                         elif key.lower() == "pol_issue_date":
                             # Set POL_ISSUE_DATE as current date (uneditable)
                             today_str = str(date.today())
-                            st.text_input("POL_ISSUE_DATE", value=today_str, key=input_key, disabled=True)
+                            widget = lambda c: c.text_input("POL_ISSUE_DATE", value=today_str, key=input_key, disabled=True)
                         else:
-                            st.text_input(f"{key}", value=str(value), key=input_key)
+                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key)
+                        # Alternate columns for 3-col layout
+                        if idx % 3 == 0:
+                            widget(col1)
+                        elif idx % 3 == 1:
+                            widget(col2)
+                        else:
+                            widget(col3)
+                        idx += 1
 
                     submit = st.form_submit_button("Submit")
                     back2 = st.form_submit_button("Back")
@@ -505,21 +551,21 @@ def claims_edit_tab():
                     intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
                     account_code_value = st.text_input("Account Code", value="")  # Replace with actual value if needed
 
-                # Vehicle details section (auto-filled from Policy)
-                st.markdown("#### Vehicle Details (Auto-filled from Policy)")
-                vehicle_col1, vehicle_col2 = st.columns(2)
+                # # Vehicle details section (auto-filled from Policy)
+                # st.markdown("#### Vehicle Details (Auto-filled from Policy)")
+                # vehicle_col1, vehicle_col2 = st.columns(2)
                 
-                with vehicle_col1:
-                    make = st.text_input("Make", disabled=True, key="claim_make")
-                    model = st.text_input("Model", disabled=True, key="claim_model")
-                    chassis_no = st.text_input("Chassis No", disabled=True, key="claim_chassis")
-                    product = st.text_input("Product", disabled=True)
+                # with vehicle_col1:
+                #     make = st.text_input("Make", disabled=True, key="claim_make")
+                #     model = st.text_input("Model", disabled=True, key="claim_model")
+                #     chassis_no = st.text_input("Chassis No", disabled=True, key="claim_chassis")
+                #     product = st.text_input("Product", disabled=True)
 
                 
-                with vehicle_col2:
-                    regn = st.text_input("Registration No", disabled=True, key="claim_regn")
-                    model_year = st.text_input("Model Year", disabled=True, key="claim_year")
-                    sum_insured = st.text_input("Sum Insured", disabled=True, key="claim_sum_insured")
+                # with vehicle_col2:
+                #     regn = st.text_input("Registration No", disabled=True, key="claim_regn")
+                #     model_year = st.text_input("Model Year", disabled=True, key="claim_year")
+                #     sum_insured = st.text_input("Sum Insured", disabled=True, key="claim_sum_insured")
                 submit = st.form_submit_button("Submit New Claim")
                 back = st.form_submit_button("Back")
 
@@ -581,12 +627,15 @@ def claims_edit_tab():
                                         "PRODUCT": policy_data.get("PRODUCT", ""),
                                         "POLICYTYPE": policy_data.get("POLICYTYPE", ""),
                                         "NATIONALITY": nationality,
+                                        "CLAIM_STAGE": "New Claim",
+                                        "CLAIM_STATUS": "New Claim",
+
                                     }
                                     
                                     # Insert claim into database
                                     insert_claim(claim_data)
                                     st.success(f"Claim {claim_no} created successfully!")
-                                    time.sleep(2)
+                                    time.sleep(5)
                                     
                                     # Reset session state
                                     st.session_state.claims_edit_page = "main"
@@ -672,15 +721,16 @@ def claims_edit_tab():
                             update_data = {
                                 "INTIMATED_AMOUNT": intimated_amount,
                                 "INTIMATED_SF": intimated_sf,
-                                "CLAIM_TYPE": claim_type,
-                                "STATUS": status,
-                                "REMARKS": remarks,
-                                "UPDATED_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "TYPE": claim_type,
+                                "CLAIM_STATUS": status,
+                                "CLAIM_REMARKS": remarks,
+                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "CLAIM_STAGE": "Updated"
                             }
                             
                             update_claim(claim_data["CLAIM_NO"], update_data)
                             st.success("Claim updated successfully!")
-                            time.sleep(2)
+                            time.sleep(5)
                             
                             st.session_state.claims_edit_page = "main"
                             st.session_state.claim_fetched = False
@@ -755,16 +805,17 @@ def claims_edit_tab():
                         else:
                             try:
                                 closure_data = {
-                                    "FINAL_SETTLEMENT_AMOUNT": final_settlement,
-                                    "CLOSURE_DATE": closure_date,
-                                    "STATUS": "Closed",
-                                    "REMARKS": f"{claim_data.get('REMARKS', '')}\n\nClosure Remarks: {closure_remarks}",
-                                    "UPDATED_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    "FINAL_SETTLEMENT_AMOUNT": float(final_settlement),
+                                    "CLAIMCLOSUREDATE": closure_date,
+                                    "CLAIM_STATUS": "Closed",
+                                    "CLAIM_REMARKS": f"{claim_data.get('REMARKS', '')}\n\nClosure Remarks: {closure_remarks}",
+                                    "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "CLAIM_STAGE": "Closed"
                                 }
                                 
                                 update_claim(claim_data["CLAIM_NO"], closure_data)
                                 st.success(f"Claim {claim_data['CLAIM_NO']} closed successfully!")
-                                time.sleep(2)
+                                time.sleep(5)
                                 
                                 st.session_state.claims_edit_page = "main"
                                 st.session_state.claim_closure_fetched = False
@@ -790,7 +841,7 @@ def claims_edit_tab():
                         query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
                         result = fetch_data(query)
                         if result:
-                            if result[0].get("STATUS", "").lower() != "closed":
+                            if result[0].get("CLAIM_STATUS", "") != "Closed":
                                 st.warning(f"Claim {claim_no} is not closed. Only closed claims can be reopened.")
                             else:
                                 st.session_state.claim_reopen_fetched = True
@@ -823,8 +874,8 @@ def claims_edit_tab():
                         st.text_input("Policy No", value=claim_data.get("POLICY_NO", ""), disabled=True)
                         st.text_input("Final Settlement", value=str(claim_data.get("FINAL_SETTLEMENT_AMOUNT", "")), disabled=True)
                     with col2:
-                        st.text_input("Closure Date", value=str(claim_data.get("CLOSURE_DATE", "")), disabled=True)
-                        st.text_input("Claim Type", value=claim_data.get("CLAIM_TYPE", ""), disabled=True)
+                        st.text_input("Closure Date", value=str(claim_data.get("CLAIMCLOSUREDATE", "")), disabled=True)
+                        st.text_input("Claim Type", value=claim_data.get("TYPE", ""), disabled=True)
                         st.text_input("Executive", value=claim_data.get("EXECUTIVE", ""), disabled=True)
 
                     confirm_reopen = st.checkbox("I confirm I want to reopen this claim")
@@ -839,16 +890,16 @@ def claims_edit_tab():
                         else:
                             try:
                                 reopen_data = {
-                                    "STATUS": new_status,
+                                    "CLAIM_STATUS": new_status,
                                     "REOPEN_DATE": reopen_date,
                                     "REOPEN_REASON": reason_for_reopen,
-                                    "REMARKS": f"{claim_data.get('REMARKS', '')}\n\nReopened on {reopen_date}: {reason_for_reopen}",
-                                    "UPDATED_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    "CLAIM_REMARKS": f"{claim_data.get('REMARKS', '')}\n\nReopened on {reopen_date}: {reason_for_reopen}",
+                                    "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 }
                                 
                                 update_claim(claim_data["CLAIM_NO"], reopen_data)
                                 st.success(f"Claim {claim_data['CLAIM_NO']} reopened successfully!")
-                                time.sleep(2)
+                                time.sleep(5)
                                 
                                 st.session_state.claims_edit_page = "main"
                                 st.session_state.claim_reopen_fetched = False
