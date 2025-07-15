@@ -69,6 +69,11 @@ st.markdown("""
         .main .block-container {
             gap: 0rem;
         }
+            
+        /* Add space between tab buttons */
+        .stTabs [data-baseweb="tab-list"] button {
+            margin-right: 20px !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 

@@ -18,9 +18,9 @@ def policy_tab():
         st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
 
     try:
-        for col in ["isCancelled", "TransactionType", "isLapsed", "CANCELLATION_DATE"]:
-            if col in df_policies.columns:
-                df_policies = df_policies.drop(columns=[col])
+        # for col in ["isCancelled", "TransactionType", "isLapsed", "CANCELLATION_DATE"]:
+        #     if col in df_policies.columns:
+        #         df_policies = df_policies.drop(columns=[col])
         if policy_search and not df_policies.empty:
             mask = df_policies.apply(lambda row: row.astype(str).str.contains(policy_search, case=False, na=False).any(), axis=1)
             df_policies = df_policies[mask]

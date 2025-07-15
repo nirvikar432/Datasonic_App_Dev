@@ -1,7 +1,15 @@
 import streamlit as st
 from fpdf import FPDF
 import io
-from policy_forms import policy_manual_form
+from policy_forms import (
+    policy_manual_form,
+    policy_summary_display,
+    policy_cancel_form,
+    policy_mta_form,
+    mta_summary_display,
+    policy_renewal_form,
+    renewal_summary_display
+)
 from prebind_forms import (
     prebind_quotation_form, 
     quotation_summary_display, 
@@ -14,17 +22,53 @@ import time
 from datetime import datetime, date
 
 
+# def policy_edit_tab():
+#     st.header("Policy Edit")
+#     if "policy_edit_page" not in st.session_state:
+#         st.session_state.policy_edit_page = "main"
+
+#     if st.session_state.policy_edit_page == "main":
+#         transaction_type = st.selectbox("Select Transaction Type", ["Pre-Bind", "New Business", "MTA", "Renewal", "Policy Cancellation"])
+#         if st.button("Proceed", key="policy_proceed_btn"):
+#             st.session_state.transaction_type = transaction_type
+#             st.session_state.policy_edit_page = "transaction_form"
+#             st.rerun()
+
 def policy_edit_tab():
     st.header("Policy Edit")
     if "policy_edit_page" not in st.session_state:
         st.session_state.policy_edit_page = "main"
+    if "policy_entry_mode" not in st.session_state:
+        st.session_state.policy_entry_mode = None
 
     if st.session_state.policy_edit_page == "main":
-        transaction_type = st.selectbox("Select Transaction Type", ["Pre-Bind", "New Business", "MTA", "Renewal", "Policy Cancellation"])
-        if st.button("Proceed", key="policy_proceed_btn"):
-            st.session_state.transaction_type = transaction_type
-            st.session_state.policy_edit_page = "transaction_form"
+        st.markdown("#### Select Method of Policy Entry")
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_btn = st.button("Manual", key="manual_entry_btn")
+        with col2:
+            upload_btn = st.button("Upload", key="upload_btn")
+
+        if manual_btn:
+            st.session_state.policy_entry_mode = "manual"
             st.rerun()
+        elif upload_btn:
+            st.session_state.policy_entry_mode = "upload"
+            st.rerun()
+
+        # Show transaction type selection only if manual selected
+        if st.session_state.policy_entry_mode == "manual":
+            transaction_type = st.selectbox(
+                "Select Transaction Type",
+                ["Pre-Bind", "New Business", "MTA", "Renewal", "Policy Cancellation"]
+            )
+            if st.button("Proceed", key="policy_proceed_btn"):
+                st.session_state.transaction_type = transaction_type
+                st.session_state.policy_edit_page = "transaction_form"
+                st.session_state.policy_entry_mode = None
+                st.rerun()
+        elif st.session_state.policy_entry_mode in ["upload"]:
+            st.info("Feature coming soon!")
 
     elif st.session_state.policy_edit_page == "transaction_form":
         ttype = st.session_state.transaction_type
@@ -32,23 +76,43 @@ def policy_edit_tab():
 
 
         if ttype == "New Business":
-            form_data, submit, back = policy_manual_form()
+            if "show_policy_summary" not in st.session_state:
+                st.session_state.show_policy_summary = False
+            
+            if not st.session_state.show_policy_summary:
+                form_data, submit, back = policy_manual_form()
 
 
-            if submit:
-                if not form_data["POLICY_NO"].strip():
-                    st.error("Fill all the mandatory fields.")
-                else:
-                    form_data["TransactionType"] = "New Business"  # Set type
-                    st.success("New Business form submitted successfully.")
-                    try:
-                        insert_policy(form_data)
-                        st.success("Policy inserted into the database.")
-                    except Exception as db_exc:
-                        st.error(f"Failed to insert policy: {db_exc}")
-            if back:
-                st.session_state.policy_edit_page = "main"
-                st.rerun()
+                if submit:
+                    if not form_data["POLICY_NO"].strip():
+                        st.error("Fill all the mandatory fields.")
+                    else:
+                        form_data["TransactionType"] = "New Business"  # Set type
+                        try:
+                            insert_policy(form_data)
+                            st.success("New Business form submitted successfully.")
+                            # Store the policy data and show summary
+                            st.session_state.policy_data = form_data
+                            st.session_state.show_policy_summary = True
+                            st.rerun()
+                        except Exception as db_exc:
+                            st.error(f"Failed to insert policy: {db_exc}")
+                if back:
+                    st.session_state.policy_edit_page = "main"
+                    st.rerun()
+            else:
+                # Show the policy summary
+                policy_data = st.session_state.policy_data
+                
+                # Display policy summary
+                policy_summary_display(policy_data)
+
+                if st.button("Main menu", key="back_to_main_from_summary"):
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.show_policy_summary = False
+                    if "policy_data" in st.session_state:
+                        del st.session_state.policy_data
+                    st.rerun()
 
         elif ttype == "Pre-Bind":
             if "prebind_step" not in st.session_state:
@@ -150,8 +214,6 @@ def policy_edit_tab():
                         st.error("Please enter a Policy Number.")
                     else:
                         form_data["TransactionType"] = "New Business"
-                        # Optional: Store TEMP_POLICY_ID if needed but need to be created as a new policy
-                        # form_data["CONVERTED_FROM_TEMP"] = quotation_data["TEMP_POLICY_ID"] 
                         try:
                             insert_policy(form_data)
                             # Mark quotation as converted
@@ -173,6 +235,8 @@ def policy_edit_tab():
                 if back:
                     st.session_state.prebind_step = "quotation_summary"
                     st.rerun()
+
+        ######
         
         elif ttype == "Policy Cancellation":
             if "cancel_policy_fetched" not in st.session_state:
@@ -184,6 +248,7 @@ def policy_edit_tab():
                     policy_no = st.text_input("Enter Policy Number *", key="cancel_policy_no")
                     fetch_btn = st.form_submit_button("Fetch Policy")
                     back_btn = st.form_submit_button("Back")
+
                     if fetch_btn:
                         if not policy_no.strip():
                             st.error("Please enter a policy number.")
@@ -200,8 +265,10 @@ def policy_edit_tab():
                                     st.session_state.cancel_policy_fetched = True
                                     st.session_state.cancel_policy_data = result[0]
                                     st.session_state.cancel_final_confirm = False
+                                    st.rerun()
                             else:
                                 st.warning("No policy found with that number.")
+                                
                     if back_btn:
                         st.session_state.policy_edit_page = "main"
                         st.session_state.cancel_policy_fetched = False
@@ -209,301 +276,391 @@ def policy_edit_tab():
                         st.session_state.cancel_final_confirm = False
                         st.rerun()
             else:
-                policy_data = st.session_state.cancel_policy_data
-                with st.form("cancel_policy_form"):
-                    # Show all fields, only premium is editable
-                    col1, col2, col3 = st.columns(3)
-                    idx = 0
-                    for key, value in policy_data.items():
-                        if key.lower() == "premium2":
-                            new_premium = st.text_input("Return Premium", value=str(value), key="cancel_edit_premium")
-                            continue
-                        elif key.lower() == "cancellation_date":
-                            cancel_date = st.date_input("Cancellation Date", value=date.today(), key="cancel_date")
-                            continue
-                        elif key.lower() in ["iscancelled", "transactiontype", "islapsed"]:
-                            continue  # Don't show isCancelled, TransactionType, and isLapsed
-                        else:
-                            # Alternate columns for 3-col layout
-                            if idx % 3 == 0:
-                                col = col1
-                            elif idx % 3 == 1:
-                                col = col2
-                            else:
-                                col = col3
-                            col.text_input(key, value=str(value), disabled=True, key=f"cancel_{key}")
-                            idx += 1
+                # Convert date strings to date objects if needed for the form
+                policy_data = st.session_state.cancel_policy_data.copy()
+                
+                # Handle date conversions
+                date_fields = ["DRV_DOB", "DRV_DLI", "POL_ISSUE_DATE", "POL_EFF_DATE", "POL_EXPIRY_DATE"]
+                for field in date_fields:
+                    if field in policy_data and isinstance(policy_data[field], str):
+                        try:
+                            policy_data[field] = datetime.strptime(policy_data[field], "%Y-%m-%d").date()
+                        except:
+                            policy_data[field] = date(2000, 1, 1) if field in ["DRV_DOB", "DRV_DLI"] else date.today()
+                
+                # Use the policy_cancel_form with pre-filled data
+                form_data, submit_cancel, back_cancel = policy_cancel_form(defaults=policy_data)
+                
+                if submit_cancel:
+                    # Keep the existing validation and calculation logic
+                    new_premium = form_data["PREMIUM2"]
+                    cancel_date = form_data["CANCELLATION_DATE"]
+                    confirm_cancel = form_data.get("confirm_cancel", False)
+                    original_premium = st.session_state.cancel_policy_data.get("PREMIUM2", 0)
                     
-
-                    confirm_cancel = st.checkbox("I confirm I want to cancel this policy", key="cancel_confirm")
-                    submit_cancel = st.form_submit_button("Submit Cancellation")
-                    back_cancel = st.form_submit_button("Back")
-
-                    if submit_cancel:
-                        if not confirm_cancel:
-                            st.warning("Please confirm cancellation by checking the box before submitting.")
-                        # Validate return premium does not exceed original premium
-                        elif float(new_premium) > float(policy_data.get("PREMIUM2", 0)):
-                            st.error("Return Premium cannot exceed the original premium.")
-                        # Double confirm before DB update
-                        elif not st.session_state.get("cancel_final_confirm", False):
-                            st.session_state.cancel_final_confirm = True
-                            st.warning("This action will permanently cancel the policy. Click 'Submit Cancellation' again to proceed.")
-                        else:
-                            try:
-                                negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
-                                update_policy(
-                                    policy_data["POLICY_NO"],
-                                    {
-                                        "isCancelled": 1,
-                                        "PREMIUM2": int(negative_premium),
-                                        "CANCELLATION_DATE": str(cancel_date),
-                                        "TransactionType": "Policy Cancellation"
-                                    }
-                                )
-                                st.success(f"Policy {policy_data['POLICY_NO']} cancelled successfully.")
-                                time.sleep(3)
-                                st.session_state.policy_edit_page = "main"
-                                st.session_state.cancel_policy_fetched = False
-                                st.session_state.cancel_policy_data = None
-                                st.session_state.cancel_final_confirm = False
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Cancellation failed: {e}")
-                    if back_cancel:
-                        st.session_state.policy_edit_page = "main"
-                        st.session_state.cancel_policy_fetched = False
-                        st.session_state.cancel_policy_data = None
-                        st.session_state.cancel_final_confirm = False
-                        st.rerun()
-
+                    if not confirm_cancel:
+                        st.warning("Please confirm cancellation by checking the box before submitting.")
+                    # Validate return premium does not exceed original premium
+                    elif float(new_premium) > float(original_premium):
+                        st.error("Return Premium cannot exceed the original premium.")
+                    # Double confirm before DB update
+                    elif not st.session_state.get("cancel_final_confirm", False):
+                        st.session_state.cancel_final_confirm = True
+                        st.warning("This action will permanently cancel the policy. Click 'Submit Cancellation' again to proceed.")
+                    else:
+                        try:
+                            # Keep the existing calculation logic
+                            negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
+                            update_policy(
+                                st.session_state.cancel_policy_data["POLICY_NO"],
+                                {
+                                    "isCancelled": 1,
+                                    "PREMIUM2": int(negative_premium),
+                                    "CANCELLATION_DATE": str(cancel_date),
+                                    "TransactionType": "Policy Cancellation"
+                                }
+                            )
+                            st.success(f"Policy {st.session_state.cancel_policy_data['POLICY_NO']} cancelled successfully.")
+                            time.sleep(3)
+                            
+                            # Reset session state
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.cancel_policy_fetched = False
+                            st.session_state.cancel_policy_data = None
+                            st.session_state.cancel_final_confirm = False
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Cancellation failed: {e}")
+                
+                if back_cancel:
+                    st.session_state.cancel_policy_fetched = False
+                    st.session_state.cancel_policy_data = None
+                    st.session_state.cancel_final_confirm = False
+                    st.rerun()
+        
+        #######
         elif ttype == "MTA":
-            if "fetched" not in st.session_state:
-                st.session_state.fetched = False
+            if "mta_policy_fetched" not in st.session_state:
+                st.session_state.mta_policy_fetched = False
+                st.session_state.mta_policy_data = None
+                st.session_state.show_mta_summary = False
 
-            # Step 1: Policy number input form
-            if not st.session_state.fetched:
-                with st.form("mta_policy_form"):
-                    policy_no = st.text_input("Enter Policy Number *")
-                    fetch = st.form_submit_button("Proceed")
-                    back = st.form_submit_button("Back")
-                    if fetch and policy_no.strip():
-                        query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
-                        result = fetch_data(query)
-                        if result:
-                            # Show already cancelled or Lapsed warning at initial state
-                            if result[0].get("isCancelled", 0) == 1:
-                                st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
-                            elif result[0].get("isLapsed", 0) == 1:
-                                st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
-                            else:
-                                st.session_state.fetched = True
-                                st.session_state.policy_data = result[0]
-                                st.session_state.edit_fields = {}
+
+            if not st.session_state.mta_policy_fetched:
+                with st.form("mta_policy_fetch_form"):
+                    policy_no = st.text_input("Enter Policy Number *", key="mta_policy_no")
+                    fetch_btn = st.form_submit_button("Fetch Policy")
+                    back_btn = st.form_submit_button("Back")
+
+                    if fetch_btn:
+                        if not policy_no.strip():
+                            st.error("Please enter a policy number.")
                         else:
-                            st.warning("No policy found with that number.")
-                    elif fetch:
-                        st.warning("Please enter Policy Number to proceed.")
-                    if back:
+                            query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                            result = fetch_data(query)
+                            if result:
+                                # Show already cancelled or Lapsed warning at initial state
+                                if result[0].get("isCancelled", 0) == 1:
+                                    st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                                elif result[0].get("isLapsed", 0) == 1:
+                                    st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
+                                else:
+                                    st.session_state.mta_policy_fetched = True
+                                    st.session_state.mta_policy_data = result[0]
+                                    st.session_state.show_mta_summary = False
+                                    st.rerun()
+                            else:
+                                st.warning("No policy found with that number.")
+                                
+                    if back_btn:
                         st.session_state.policy_edit_page = "main"
-                        st.session_state.fetched = False
+                        st.session_state.mta_policy_fetched = False
+                        st.session_state.mta_policy_data = None
+                        st.session_state.show_mta_summary = False
                         st.rerun()
 
-            # Step 2: Show editable form if fetched
-            if st.session_state.get("fetched") and "policy_data" in st.session_state:
-                st.markdown(f"#### {ttype} - Update Form")
-                policy_data = st.session_state.policy_data
-                edit_fields = {}
-
-                # Define editable and non-editable fields for MTA
-                non_editable_fields = [
-                    "POLICY_NO", "CHASSIS_NO", "POL_EFF_DATE", "POL_EXPIRY_DATE"
-                ]
-                editable_fields = [
-                    "SUM INSURED","DRV_DOB", "DRV_DLI", "PREMIUM2", "USE_OF_VEHICLE", "VEH_SEATS", "PRODUCT",
-                    "POLICYTYPE", "BODY", "MAKE", "MODEL", "USE_OF_VEHICLE", "MODEL_YEAR", "REGN"
-                ]
-                # Normalize keys for matching
-                editable_keys = [k.replace(" ", "").lower() for k in editable_fields]
-                non_editable_keys = [k.replace(" ", "").lower() for k in non_editable_fields]
-
-                with st.form("update_mta_policy_form"):
-                    col1, col2, col3 = st.columns(3)
-                    idx = 0
-                    for key, value in policy_data.items():
-                        input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
-                        key_norm = key.replace(" ", "").lower()
-                        # Do not show Transaction Type and isLapsed fields
-                        if key_norm in ["transactiontype", "islapsed"]:
-                            continue
-                        if key_norm in non_editable_keys:
-                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
-                        elif key_norm in editable_keys:
-                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key)
-                        elif key.lower() in ["cancellation_date", "iscancelled"]:
-                            continue  # Skip cancellation date and isCancelled field
-                        else:
-                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key, disabled=True)
-                        # Alternate columns for 3-col layout
-                        if idx % 3 == 0:
-                            widget(col1)
-                        elif idx % 3 == 1:
-                            widget(col2)
-                        else:
-                            widget(col3)
-                        idx += 1
-
-                    submit = st.form_submit_button("Submit")
-                    back2 = st.form_submit_button("Back")
-                    if submit:
-                        for key, value in policy_data.items():
-                            input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
-                            key_norm = key.replace(" ", "").lower()
-                            if key_norm in non_editable_keys:
-                                new_val = value  # keep as is
-                            elif key_norm in editable_keys:
-                                new_val = st.session_state[input_key]
-                            else:
-                                new_val = value
-                            if str(new_val) != str(value):
-                                edit_fields[key] = new_val
-                            # Always update TransactionType for MTA
-                            edit_fields["TransactionType"] = "MTA"
-                        if edit_fields:
+            elif not st.session_state.show_mta_summary:
+                # Convert date strings to date objects if needed for the form
+                policy_data = st.session_state.mta_policy_data.copy()
+                
+                # Handle date conversions
+                date_fields = ["DRV_DOB", "DRV_DLI", "POL_ISSUE_DATE", "POL_EFF_DATE", "POL_EXPIRY_DATE"]
+                for field in date_fields:
+                    if field in policy_data:
+                        if isinstance(policy_data[field], str):
                             try:
-                                update_policy(policy_data["POLICY_NO"], edit_fields)
-                                st.success("Selected fields updated successfully.")
-                                time.sleep(3)
-                                st.session_state.fetched = False
-                                st.session_state.policy_edit_page = "main"
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Update failed: {e}")
-                        else:
-                            st.info("No fields selected for update.")
-                    if back2:
-                        st.session_state.fetched = False
-                        st.rerun()
-            
+                                # Parse string to datetime, then extract date
+                                policy_data[field] = datetime.strptime(policy_data[field], "%Y-%m-%d").date()
+                            except:
+                                try:
+                                    # Try parsing with time component
+                                    policy_data[field] = datetime.strptime(policy_data[field][:10], "%Y-%m-%d").date()
+                                except:
+                                    policy_data[field] = date(2000, 1, 1) if field in ["DRV_DOB", "DRV_DLI"] else date.today()
+                        elif hasattr(policy_data[field], 'date'):
+                            # Convert datetime object to date object
+                            policy_data[field] = policy_data[field].date()
+                
+                # Use the policy_mta_form with pre-filled data
+                form_data, submit_mta, back_mta = policy_mta_form(defaults=policy_data)
+                
+                if submit_mta:
+                    # Collect changed fields with proper date comparison
+                    edit_fields = {}
+                    original_policy = st.session_state.mta_policy_data
+                    
+                    for key, new_value in form_data.items():
+                        if key in original_policy:
+                            original_value = original_policy[key]
+                            
+                            # Special handling for date fields
+                            if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                                # Convert original value to date for comparison
+                                if hasattr(original_value, 'date'):
+                                    # If original is datetime, get date part
+                                    original_date = original_value.date()
+                                elif isinstance(original_value, str):
+                                    # If original is string, parse to date
+                                    try:
+                                        # Handle both with and without time component
+                                        if ' ' in original_value:
+                                            original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                                        else:
+                                            original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                                    except:
+                                        original_date = original_value
+                                else:
+                                    original_date = original_value
+                                
+                                # Compare dates only
+                                if new_value != original_date:
+                                    edit_fields[key] = new_value
+                            else:
+                                # Regular comparison for non-date fields
+                                if str(new_value) != str(original_value):
+                                    edit_fields[key] = new_value
+                    
+                    # Always update TransactionType for MTA
+                    edit_fields["TransactionType"] = "MTA"
+                    
+                    # Remove TransactionType from edit_fields if no other changes were made
+                    if len(edit_fields) == 1 and "TransactionType" in edit_fields:
+                        st.info("No fields were modified.")
+                    else:
+                        try:
+                            update_policy(original_policy["POLICY_NO"], edit_fields)
+                            # Store the updated data and changes for summary
+                            st.session_state.mta_updated_data = {**original_policy, **edit_fields}
+                            st.session_state.mta_changes = edit_fields
+                            st.session_state.show_mta_summary = True
+                            st.success("MTA updated successfully.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"MTA update failed: {e}")
 
+                if back_mta:
+                    st.session_state.mta_policy_fetched = False
+                    st.session_state.mta_policy_data = None
+                    st.session_state.show_mta_summary = False
+                    st.rerun()
+            else:
+                # Show MTA Summary
+                updated_data = st.session_state.mta_updated_data
+                changes_made = st.session_state.mta_changes
+                
+                # Display what was changed
+                st.subheader("Changes Made")
+                if changes_made:
+                    changes_list = []
+                    for field, new_value in changes_made.items():
+                        if field != "TransactionType":
+                            old_value = st.session_state.mta_policy_data.get(field, "")
+                            changes_list.append(f"**{field}:** {old_value} → {new_value}")
+                    
+                    if changes_list:
+                        for change in changes_list:
+                            st.write(change)
+                    st.markdown("---")
+                
+                # Display MTA summary using the imported function
+                mta_summary_display(updated_data)
+                
+                # Action buttons
+                _, col2, _ = st.columns([1, 1, 1])
+
+                with col2:  # Use the middle column
+                    back_to_main = st.button("Back to Main", use_container_width=True)
+                
+                
+                if back_to_main:
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.mta_policy_fetched = False
+                    st.session_state.mta_policy_data = None
+                    st.session_state.show_mta_summary = False
+                    if "mta_updated_data" in st.session_state:
+                        del st.session_state.mta_updated_data
+                    if "mta_changes" in st.session_state:
+                        del st.session_state.mta_changes
+                    st.rerun()
+
+
+
+
+        #############
         else:  # Renewal
-            if "fetched" not in st.session_state:
-                st.session_state.fetched = False
-            
-            # Step 1: Policy number input form
-            if not st.session_state.fetched:
-                with st.form("existing_policy_form"):
-                    policy_no = st.text_input("Enter Policy Number *")
-                    fetch = st.form_submit_button("Proceed")
-                    back = st.form_submit_button("Back")
-                    if fetch and policy_no.strip():
-                    # Fetch policy data
-                        query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
-                        result = fetch_data(query)
-                        if result:
-                            # Show already cancelled or Lapsed warning at initial state
-                            if result[0].get("isCancelled", 0) == 1:
-                                st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
-                            elif result[0].get("isLapsed", 0) == 1:
-                                st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
-                            else:
-                                st.session_state.fetched = True
-                                st.session_state.policy_data = result[0]
-                                st.session_state.edit_fields = {}
+            if "renewal_policy_fetched" not in st.session_state:
+                st.session_state.renewal_policy_fetched = False
+                st.session_state.renewal_policy_data = None
+                st.session_state.show_renewal_summary = False
+
+            if not st.session_state.renewal_policy_fetched:
+                with st.form("renewal_policy_fetch_form"):
+                    policy_no = st.text_input("Enter Policy Number *", key="renewal_policy_no")
+                    fetch_btn = st.form_submit_button("Fetch Policy")
+                    back_btn = st.form_submit_button("Back")
+
+                    if fetch_btn:
+                        if not policy_no.strip():
+                            st.error("Please enter a policy number.")
                         else:
-                            st.warning("No policy found with that number.")
-                    elif fetch:
-                        st.warning("Please enter Policy Number to proceed.")
-                    if back:
+                            query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                            result = fetch_data(query)
+                            if result:
+                                # Show already cancelled or Lapsed warning at initial state
+                                if result[0].get("isCancelled", 0) == 1:
+                                    st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                                elif result[0].get("isLapsed", 0) == 1:
+                                    st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
+                                else:
+                                    st.session_state.renewal_policy_fetched = True
+                                    st.session_state.renewal_policy_data = result[0]
+                                    st.session_state.show_renewal_summary = False
+                                    st.rerun()
+                            else:
+                                st.warning("No policy found with that number.")
+                                
+                    if back_btn:
                         st.session_state.policy_edit_page = "main"
-                        st.session_state.fetched = False
+                        st.session_state.renewal_policy_fetched = False
+                        st.session_state.renewal_policy_data = None
+                        st.session_state.show_renewal_summary = False
                         st.rerun()
-
-            # Step 2: Show editable form if fetched
-            if st.session_state.get("fetched") and "policy_data" in st.session_state:
-                st.markdown(f"#### {ttype} - Update Form")
-                policy_data = st.session_state.policy_data
-                edit_fields = {}
-
-                # Render all fields with data, increment start and end year by +1, and make year fields uneditable
-                with st.form("update_policy_form"):
-                    col1, col2, col3 = st.columns(3)
-                    idx = 0
-                    for key, value in policy_data.items():
-                        input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
-
-                        if key.lower() in ["islapsed", "transactiontype","cancellation_date", "iscancelled"]:
-                            continue  # Field is hidden from the user
-                        # Detect year fields
-                        if key.lower() in ["pol_eff_date", "pol_expiry_date"]:
-                            try:
-                                # Parse the date string to a date object
-                                date_obj = datetime.strptime(str(value), "%Y-%m-%d")
-                                # Add one year (365 days, or use replace for exact year increment)
-                                new_date = date_obj.replace(year=date_obj.year + 1)
-                                new_date_str = new_date.strftime("%Y-%m-%d")
-                            except Exception:
-                                new_date_str = str(value)
-                            widget = lambda c: c.text_input(f"{key}", value=new_date_str, key=input_key, disabled=True)
-                        elif key.lower() == "pol_issue_date":
-                            # Set POL_ISSUE_DATE as current date (uneditable)
-                            today_str = str(date.today())
-                            widget = lambda c: c.text_input("POL_ISSUE_DATE", value=today_str, key=input_key, disabled=True)
-                        else:
-                            widget = lambda c: c.text_input(f"{key}", value=str(value), key=input_key)
-                        # Alternate columns for 3-col layout
-                        if idx % 3 == 0:
-                            widget(col1)
-                        elif idx % 3 == 1:
-                            widget(col2)
-                        else:
-                            widget(col3)
-                        idx += 1
-
-                    submit = st.form_submit_button("Submit")
-                    back2 = st.form_submit_button("Back")
-                    if submit:
-                        # Collect all fields except year fields (since they are uneditable)
-                        for key, value in policy_data.items():
-                            input_key = f"edit_val_{key}_{policy_data['POLICY_NO']}"
-                            # Skip hidden fields
-                            if key.lower() in ["islapsed", "transactiontype", "cancellation_date", "iscancelled"]:
-                                continue
-                            if key.lower() in ["start_year", "end_year"]:
-                                try:
-                                    new_val = str(int(value) + 1)
-                                except Exception:
-                                    new_val = str(value)
-                            elif key.lower() == "pol_issue_date":
-                                new_val = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            elif key.lower() in ["pol_eff_date", "pol_expiry_date"]:
-                                # These are disabled, so use the incremented value from above
-                                try:
-                                    date_obj = datetime.strptime(str(value), "%Y-%m-%d")
-                                    new_date = date_obj.replace(year=date_obj.year + 1)
-                                    new_val = new_date.strftime("%Y-%m-%d")
-                                except Exception:
-                                    new_val = str(value)
+            
+            elif not st.session_state.show_renewal_summary:
+                # Convert date strings to date objects if needed for the form
+                policy_data = st.session_state.renewal_policy_data.copy()
+                
+                # Handle date conversions
+                date_fields = ["DRV_DOB", "DRV_DLI", "POL_ISSUE_DATE", "POL_EFF_DATE", "POL_EXPIRY_DATE"]
+                for field in date_fields:
+                    if field in policy_data and isinstance(policy_data[field], str):
+                        try:
+                            policy_data[field] = datetime.strptime(policy_data[field], "%Y-%m-%d").date()
+                        except:
+                            policy_data[field] = date(2000, 1, 1) if field in ["DRV_DOB", "DRV_DLI"] else date.today()
+                
+                # Use the policy_renewal_form with pre-filled data
+                form_data, submit_renewal, back_renewal = policy_renewal_form(defaults=policy_data)
+                
+                if submit_renewal:
+                    # Collect changed fields
+                    edit_fields = {}
+                    original_policy = st.session_state.renewal_policy_data
+                    
+                    for key, new_value in form_data.items():
+                        if key in original_policy:
+                            original_value = original_policy[key]
+                            
+                            # Special handling for date fields
+                            if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                                # Convert original value to date for comparison
+                                if hasattr(original_value, 'date'):
+                                    original_date = original_value.date()
+                                elif isinstance(original_value, str):
+                                    try:
+                                        if ' ' in original_value:
+                                            original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                                        else:
+                                            original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                                    except:
+                                        original_date = original_value
+                                else:
+                                    original_date = original_value
+                                
+                                # Compare dates only
+                                if new_value != original_date:
+                                    edit_fields[key] = new_value
                             else:
-                                new_val = st.session_state.get(input_key, value)
-                            if str(new_val) != str(value):
-                                edit_fields[key] = new_val
-                        # Always update TransactionType for Renewal
-                        edit_fields["TransactionType"] = "Renewal"
-                        if edit_fields:
-                            try:
-                                update_policy(policy_data["POLICY_NO"], edit_fields)
-                                st.success("Selected fields updated successfully.")
-                                st.session_state.fetched = False
-                                st.session_state.policy_edit_page = "main"
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Update failed: {e}")
-                        else:
-                            st.info("No fields selected for update.")
-                    if back2:
-                        st.session_state.fetched = False
-                        st.rerun()
+                                # Regular comparison for non-date fields
+                                if str(new_value) != str(original_value):
+                                    edit_fields[key] = new_value
+                    
+                    # Always update TransactionType for Renewal
+                    edit_fields["TransactionType"] = "Renewal"
+                    
+                    # For renewal, always update the dates even if they appear the same
+                    # Force update POL_ISSUE_DATE to current date
+                    edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
+                    edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
+                    edit_fields["POL_EXPIRY_DATE"] = form_data["POL_EXPIRY_DATE"]
+                    
+                    if edit_fields:
+                        try:
+                            update_policy(original_policy["POLICY_NO"], edit_fields)
+                            # Store the updated data and changes for summary
+                            st.session_state.renewal_updated_data = {**original_policy, **edit_fields}
+                            st.session_state.renewal_changes = edit_fields
+                            st.session_state.show_renewal_summary = True
+                            st.success("Renewal updated successfully.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Renewal update failed: {e}")
+                    else:
+                        st.info("No fields were modified.")
+
+                if back_renewal:
+                    st.session_state.renewal_policy_fetched = False
+                    st.session_state.renewal_policy_data = None
+                    st.session_state.show_renewal_summary = False
+                    st.rerun()
+            
+            else:
+                # Show Renewal Summary
+                updated_data = st.session_state.renewal_updated_data
+                changes_made = st.session_state.renewal_changes
+                
+                # Display what was changed
+                st.subheader("Changes Made")
+                if changes_made:
+                    changes_list = []
+                    for field, new_value in changes_made.items():
+                        if field != "TransactionType":
+                            old_value = st.session_state.renewal_policy_data.get(field, "")
+                            changes_list.append(f"**{field}:** {old_value} → {new_value}")
+                    
+                    if changes_list:
+                        for change in changes_list:
+                            st.write(change)
+                    st.markdown("---")
+                
+                # Display Renewal summary using the imported function
+                renewal_summary_display(updated_data)
+                
+                # Center the back button
+                _, col, _ = st.columns([1, 1, 1])
+                with col:
+                    back_to_main = st.button("Back to Main", use_container_width=True)
+
+                if back_to_main:
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.renewal_policy_fetched = False
+                    st.session_state.renewal_policy_data = None
+                    st.session_state.show_renewal_summary = False
+                    if "renewal_updated_data" in st.session_state:
+                        del st.session_state.renewal_updated_data
+                    if "renewal_changes" in st.session_state:
+                        del st.session_state.renewal_changes
+                    st.rerun()
 
 def claims_edit_tab():
     st.header("Claims Edit")

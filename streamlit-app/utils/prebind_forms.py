@@ -4,6 +4,7 @@ import time
 import uuid
 
 def prebind_quotation_form(defaults=None):
+    st.caption("Fields marked with * are mandatory.")
     """
     Pre-Bind quotation form for generating quotes before policy issuance
     """
@@ -21,24 +22,24 @@ def prebind_quotation_form(defaults=None):
         # Customer Details Section
         st.subheader("Customer Details")
         col1, col2, col3 = st.columns(3)
-        cust_id = col1.text_input("Customer ID *", value=defaults.get("CUST_ID", ""), help="Mandatory")
-        cust_name = col2.text_input("Customer Name *", value=defaults.get("CUST_NAME", ""), help="Mandatory")
-        cust_dob = col3.date_input("Customer DOB *", value=defaults.get("CUST_DOB", date(1990, 1, 1)), help="Mandatory")
+        cust_id = col1.text_input("Customer ID *", value=defaults.get("CUST_ID", ""))
+        cust_name = col2.text_input("Customer Name *", value=defaults.get("CUST_NAME", ""))
+        cust_dob = col3.date_input("Customer DOB *", value=defaults.get("CUST_DOB", date(1990, 1, 1)))
         
         col4, col5, col6 = st.columns(3)
-        cust_contact = col4.text_input("Contact Number *", value=defaults.get("CUST_CONTACT", ""), help="Mandatory")
-        cust_email = col5.text_input("Email", value=defaults.get("CUST_EMAIL", ""), help="Optional")
-        executive = col6.text_input("Executive *", value=defaults.get("EXECUTIVE", ""), help="Mandatory")
+        cust_contact = col4.text_input("Contact Number *", value=defaults.get("CUST_CONTACT", ""))
+        cust_email = col5.text_input("Email", value=defaults.get("CUST_EMAIL", ""))
+        executive = col6.text_input("Executive *", value=defaults.get("EXECUTIVE", ""))
         
         # Vehicle Details Section
         st.subheader("Vehicle Details")
         col7, col8, col9 = st.columns(3)
-        chassis_no = col7.text_input("Chassis Number *", value=defaults.get("CHASSIS_NO", ""), help="Mandatory")
-        make = col8.text_input("Make *", value=defaults.get("MAKE", ""), help="Mandatory")
-        model = col9.text_input("Model *", value=defaults.get("MODEL", ""), help="Mandatory")
+        chassis_no = col7.text_input("Chassis Number *", value=defaults.get("CHASSIS_NO", ""))
+        make = col8.text_input("Make *", value=defaults.get("MAKE", ""))
+        model = col9.text_input("Model *", value=defaults.get("MODEL", ""))
         
         col10, col11, col12 = st.columns(3)
-        model_year = col10.text_input("Model Year *", value=str(defaults.get("MODEL_YEAR", "")), help="Mandatory")
+        model_year = col10.text_input("Model Year *", value=str(defaults.get("MODEL_YEAR", "")) )
         regn = col11.text_input("Registration Number", value=defaults.get("REGN", ""), help="Optional")
         use_of_vehicle = col12.selectbox("Use of Vehicle *", 
                                        ["Private Car", "Commercial", "Taxi", "Goods Carrying"], 
@@ -49,9 +50,9 @@ def prebind_quotation_form(defaults=None):
         # Driver Details Section
         st.subheader("Driver Details")
         col13, col14, col15 = st.columns(3)
-        drv_dob = col13.date_input("Driver DOB *", value=defaults.get("DRV_DOB", date(1990, 1, 1)), help="Mandatory")
-        drv_dli = col14.date_input("Driver License Issue *", value=defaults.get("DRV_DLI", date(2010, 1, 1)), help="Mandatory")
-        veh_seats = col15.text_input("Vehicle Seats *", value=str(defaults.get("VEH_SEATS", "5")), help="Mandatory")
+        drv_dob = col13.date_input("Driver DOB *", value=defaults.get("DRV_DOB", date(1990, 1, 1)) )
+        drv_dli = col14.date_input("Driver License Issue *", value=defaults.get("DRV_DLI", date(2010, 1, 1)) )
+        veh_seats = col15.text_input("Vehicle Seats *", value=str(defaults.get("VEH_SEATS", "5")) )
         
         # Coverage and Premium Details Section
         st.subheader("Coverage & Premium")
@@ -60,11 +61,11 @@ def prebind_quotation_form(defaults=None):
                                       ["COMPREHENSIVE", "THIRD PARTY"], 
                                       index=0 if defaults.get("COVERAGE_TYPE", "") in ["", "COMPREHENSIVE"] else 1,
                                       help="Comprehensive: Includes coverage for your own damage + Others | Third Party: Covers damage caused to others only")
-        sum_insured = col17.text_input("Sum Insured *", value=str(defaults.get("SUM_INSURED", "")), help="Mandatory")
-        premium_estimate = col18.text_input("Premium Estimate *", value=str(defaults.get("PREMIUM_ESTIMATE", "")), help="Mandatory")
+        sum_insured = col17.text_input("Sum Insured *", value=str(defaults.get("SUM_INSURED", "")) )
+        premium_estimate = col18.text_input("Premium Estimate *", value=str(defaults.get("PREMIUM_ESTIMATE", "")) )
         
         col19, col20, col21 = st.columns(3)
-        product_type = col19.text_input("Product Type *", value=defaults.get("PRODUCT_TYPE", ""), help="Mandatory")
+        product_type = col19.text_input("Product Type *", value=defaults.get("PRODUCT_TYPE", "") )
         validity_period = col20.selectbox("Quotation Validity", 
                                         ["7 days", "15 days", "1 month"], 
                                         index=["7 days", "15 days", "1 month"].index(defaults.get("VALIDITY_PERIOD", "7 days")),
