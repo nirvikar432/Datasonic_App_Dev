@@ -88,7 +88,7 @@ st.set_page_config(
 
 def main():
     st.title("Policy and Claims Management")
-    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit", "Analytics"])
+    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit", "Analytics", "TOBA"])
 
     with tabs[0]:
         policy_tab()
@@ -100,6 +100,8 @@ def main():
         claims_edit_tab()
     with tabs[4]:
         charts_tab()
+    with tabs[5]:
+        st.write("TOBA Management (Coming Soon)")
 
 if __name__ == "__main__":
     main()

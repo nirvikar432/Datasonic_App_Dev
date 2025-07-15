@@ -124,7 +124,15 @@ def policy_manual_form(defaults=None):
         col21, col22, col23 = st.columns(3)
         pol_issue_date = col21.date_input("POLICY ISSUE DATE *", value=defaults.get("POL_ISSUE_DATE", date.today()))
         pol_eff_date = col22.date_input("POLICY EFFECTIVE DATE *", value=defaults.get("POL_EFF_DATE", date.today()))
-        pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", date.today()))
+        # pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", date.today()))
+        def get_default_expiry_date():
+            today = date.today()
+            try:
+                return today.replace(year=today.year + 1)
+            except ValueError:  # Handle Feb 29 on non-leap years
+                return today.replace(year=today.year + 1, month=2, day=28)
+
+        pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", get_default_expiry_date()))
 
         col18, col19, col20 = st.columns(3)
         premium2 = col18.text_input("PREMIUM *", value=str(defaults.get("PREMIUM2", "")))
