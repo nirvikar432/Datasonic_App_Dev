@@ -40,7 +40,7 @@ def policy_tab():
             # Set index to start from 1
             display_df = df_policies.iloc[start_idx:end_idx].reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df)
+            st.dataframe(display_df, use_container_width=True, height=410, hide_index=True)
 
             # Show page size and page selection below the table
             space, col_page, space, col_size = st.columns([10, 2,10,2])
@@ -59,7 +59,7 @@ def policy_tab():
                     max_value=total_pages,
                     value=page_num,
                     step=1,
-                    key="policy_page",
+                    key="policy_page"
                 )
         else:
             st.info("No policy data found.")

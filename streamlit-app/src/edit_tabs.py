@@ -43,11 +43,14 @@ def policy_edit_tab():
 
     if st.session_state.policy_edit_page == "main":
         st.markdown("#### Select Method of Policy Entry")
-        col1, col2 = st.columns(2)
+        st.markdown("<div style='margin-top: 50px'></div>", unsafe_allow_html=True)
+        _,_, col1,_,_,_,_ ,col2,_,_,_ = st.columns(11)
+        
+
         with col1:
-            manual_btn = st.button("Manual", key="manual_entry_btn")
+            manual_btn = st.button("Manual", key="manual_entry_btn",type="primary", use_container_width=True)
         with col2:
-            upload_btn = st.button("Upload", key="upload_btn")
+            upload_btn = st.button("Upload", key="upload_btn", type="primary", use_container_width=True)
 
         if manual_btn:
             st.session_state.policy_entry_mode = "manual"
@@ -60,7 +63,7 @@ def policy_edit_tab():
         if st.session_state.policy_entry_mode == "manual":
             transaction_type = st.selectbox(
                 "Select Transaction Type",
-                ["New Business", "MTA", "Renewal", "Policy Cancellation"]
+                ["New Business", "MTA", "Renewal", "Policy Cancellation"], width=500, 
             )
             if st.button("Proceed", key="policy_proceed_btn"):
                 st.session_state.transaction_type = transaction_type
@@ -673,6 +676,9 @@ def claims_edit_tab():
             "Select Claims Transaction Type", 
             ["New Claim", "Claim Update", "Claim Closure", "Claim Reopen"]
         )
+
+        st.markdown("<div style='margin-top: 50px'></div>", unsafe_allow_html=True)
+
         if st.button("Proceed", key="claims_proceed_btn"):
             st.session_state.claims_transaction_type = transaction_type
             st.session_state.claims_edit_page = "transaction_form"

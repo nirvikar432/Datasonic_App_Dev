@@ -1,4 +1,6 @@
 import pyodbc
+import streamlit as st
+
 def get_db_connection():
  
 
@@ -321,3 +323,111 @@ def update_claim(claim_no, update_data):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def insert_broker(broker_data):
+    """Insert broker with error handling"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO Broker (
+            Broker_ID, Broker_Name, Commission
+        ) VALUES (?, ?, ?)
+        """
+        
+        values = (
+            broker_data.get("Broker_ID"),
+            broker_data.get("Broker_Name"),
+            broker_data.get("Commission")
+        )
+        
+        cursor.execute(insert_query, values)
+        conn.commit()
+        
+        st.success(f"🎉 Successfully inserted broker: {broker_data.get('Broker_ID')} - {broker_data.get('Broker_Name')}")
+        
+    except pyodbc.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Broker data integrity error: {e}")
+        st.info("💡 This usually means the Broker ID already exists")
+        raise
+    except pyodbc.Error as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Database error during broker insertion: {e}")
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Unexpected error during broker insertion: {e}")
+        raise
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+
+def insert_insurer(insurer_data):
+    """Insert facility and multiple insurers with error handling"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert each insurer in the facility
+        insurers = insurer_data.get('insurers', [])
+        
+        if not insurers:
+            raise ValueError("No insurers provided in the data")
+        
+        # Insert each insurer record
+        for i, insurer in enumerate(insurers):
+            insert_query = """
+            INSERT INTO insurer (
+                Facility_ID, Facility_Name, Group_Size, Insurer_ID, Insurer_Name, Participation
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """
+            
+            values = (
+                insurer_data.get("Facility_ID"),
+                insurer_data.get("Facility_Name"),
+                insurer_data.get("Group_Size"),
+                insurer.get("Insurer_ID"),
+                insurer.get("Insurer_Name"),
+                insurer.get("Participation")
+            )
+            
+            try:
+                cursor.execute(insert_query, values)
+                st.info(f"✓ Inserted Insurer {i+1}: {insurer.get('Insurer_ID')} - {insurer.get('Insurer_Name')}")
+            except Exception as e:
+                st.error(f"✗ Error inserting Insurer {i+1} ({insurer.get('Insurer_ID', 'Unknown')}): {e}")
+                raise
+        
+        conn.commit()
+        st.success(f"🎉 Successfully inserted all {len(insurers)} insurer(s) for facility {insurer_data.get('Facility_ID')}")
+        
+    except pyodbc.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Data integrity error: {e}")
+        st.info("💡 This usually means duplicate IDs or constraint violations")
+        raise
+    except pyodbc.Error as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Database error: {e}")
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        st.error(f"Unexpected error: {e}")
+        raise
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()

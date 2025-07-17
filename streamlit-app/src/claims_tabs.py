@@ -38,7 +38,7 @@ def claims_tab():
             # Set index to start from 1
             display_df = df_claims.iloc[start_idx:end_idx].reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df)
+            st.dataframe(display_df, use_container_width=True, height=410)
 
             # Show page size and page selection below the table
             space, col_page, space, col_size = st.columns([10, 2, 10, 2])
