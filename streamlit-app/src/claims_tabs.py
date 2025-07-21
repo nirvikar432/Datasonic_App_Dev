@@ -3,7 +3,7 @@ import pandas as pd
 from db_utils import fetch_data
 
 def claims_tab():
-    st.header("Claims")
+    st.header("Claims Management")
     claims_query = "SELECT TOP 20 * FROM Claims"
     claims = fetch_data(claims_query)
     df_claims = pd.DataFrame(claims) if claims else pd.DataFrame()
@@ -38,7 +38,7 @@ def claims_tab():
             # Set index to start from 1
             display_df = df_claims.iloc[start_idx:end_idx].reset_index(drop=True)
             display_df.index = display_df.index + 1
-            st.dataframe(display_df, use_container_width=True, height=410)
+            st.dataframe(display_df, use_container_width=True, height=410, hide_index=True)
 
             # Show page size and page selection below the table
             space, col_page, space, col_size = st.columns([10, 2, 10, 2])

@@ -5,12 +5,10 @@ import os
 
 # Add the utils directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
-from db_utils import fetch_data, insert_policy, update_policy
-from policy_forms import policy_manual_form
-from policy_status_utils import update_policy_lapsed_status
 from policy_tabs import policy_tab
 from claims_tabs import claims_tab
-from edit_tabs import policy_edit_tab, claims_edit_tab
+from submission import submission_tab
+from edit_tabs import new_submission_tab
 from charts_tab import charts_tab
 from toba import toba_tab
 
@@ -95,9 +93,9 @@ def main():
         }
         .logo-text {
             font-weight:700 !important;
-            font-size:20px !important;
+            font-size:45px !important;
             color: #FF7601 !important;
-            padding-top: 35px !important;
+            padding-top: 10px !important;
         }
         .logo-img {
             float:right;
@@ -120,20 +118,17 @@ def main():
     )
     #add an icon with the text "Datasonic" in the top left corner
     # st.title("Policy and Claims Management")
-    tabs = st.tabs(["Policies", "Claims", "Policy Edit", "Claims Edit", "Analytics", "TOBA"])
+    tabs = st.tabs(["Submission", "New Submission", "TOBA On-boarding", "Analytics"])
 
     with tabs[0]:
-        policy_tab()
+        submission_tab()
     with tabs[1]:
-        claims_tab()
+        new_submission_tab()
     with tabs[2]:
-        policy_edit_tab()
-    with tabs[3]:
-        claims_edit_tab()
-    with tabs[4]:
-        charts_tab()
-    with tabs[5]:
         toba_tab()
+    with tabs[3]:
+        charts_tab()
+
 
 if __name__ == "__main__":
     main()

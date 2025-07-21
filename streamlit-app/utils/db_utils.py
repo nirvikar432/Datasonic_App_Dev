@@ -1,3 +1,4 @@
+from datetime import time
 import pyodbc
 import streamlit as st
 
@@ -323,31 +324,148 @@ def update_claim(claim_no, update_data):
     conn.commit()
     cursor.close()
     conn.close()
+    
+
+
+
+
+# def insert_broker(broker_data):
+#     """Insert broker with error handling"""
+#     conn = None
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+        
+#         insert_query = """
+#         INSERT INTO Broker (
+#             Broker_ID, Broker_Name, Commission, Date_Of_Onboarding,
+#             FCA_Registration_Number, Broker_Type, Market_Access, Delegated_Authority
+#         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+#         """
+        
+#         values = (
+#             broker_data.get("Broker_ID"),
+#             broker_data.get("Broker_Name"),
+#             broker_data.get("Commission"),
+#             broker_data.get("Date_Of_Onboarding"),
+#             broker_data.get("FCA_Registration_Number"),
+#             broker_data.get("Broker_Type"),
+#             broker_data.get("Market_Access"),
+#             broker_data.get("Delegated_Authority")
+#         )
+        
+#         cursor.execute(insert_query, values)
+#         conn.commit()
+        
+#     except pyodbc.IntegrityError as e:
+#         if conn:
+#             conn.rollback()
+#         st.error(f"Broker data integrity error: {e}")
+#         st.info("💡 This usually means the Broker ID already exists")
+#         raise
+#     except pyodbc.Error as e:
+#         if conn:
+#             conn.rollback()
+#         st.error(f"Database error during broker insertion: {e}")
+#         raise
+#     except Exception as e:
+#         if conn:
+#             conn.rollback()
+#         st.error(f"Unexpected error during broker insertion: {e}")
+#         raise
+#     finally:
+#         if conn:
+#             cursor.close()
+#             conn.close()
+
+
+
+# # def update_broker(fca_registration, update_fields):
+#     """Update broker fields by FCA Registration Number"""
+#     conn = None
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         set_clause = ', '.join([f"{key} = ?" for key in update_fields.keys()])
+#         values = list(update_fields.values()) + [fca_registration]
+#         update_query = f"UPDATE Broker SET {set_clause} WHERE FCA_Registration_Number = ?"
+#         cursor.execute(update_query, values)
+#         conn.commit()
+#         st.success(f"Broker updated for FCA Registration Number {fca_registration}.")
+
+#     except pyodbc.Error as e:
+#         if conn:
+#             conn.rollback()
+#         st.error(f"Database error during broker update: {e}")
+#         raise
+#     except Exception as e:
+#         if conn:
+#             conn.rollback()
+#         st.error(f"Unexpected error during broker update: {e}")
+#         raise
+#     finally:
+#         if conn:
+#             cursor.close()
+#             conn.close()
 
 
 def insert_broker(broker_data):
-    """Insert broker with error handling"""
+    """Insert broker with error handling or update if FCA_Registration_Number exists"""
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # First check if the FCA_Registration_Number already exists
+        fca_registration = broker_data.get("FCA_Registration_Number")
+        if fca_registration and fca_registration.strip():
+            # Check if FCA Registration Number exists
+            check_query = "SELECT Broker_ID FROM Broker WHERE FCA_Registration_Number = ?"
+            cursor.execute(check_query, (fca_registration))
+            existing_record = cursor.fetchone()
+            
+            if existing_record:
+                # Record exists, perform an update instead of insert
+                update_fields = {k: v for k, v in broker_data.items() 
+                               if k not in ["Broker_ID", "FCA_Registration_Number"]}
+                
+                if update_fields:
+                    set_clause = ', '.join([f"{key} = ?" for key in update_fields.keys()])
+                    values = list(update_fields.values()) + [fca_registration]
+                    update_query = f"UPDATE Broker SET {set_clause} WHERE FCA_Registration_Number = ?"
+                    cursor.execute(update_query, values)
+                    conn.commit()
+                    return "updated"  # Return status to indicate an update occurred
+                else:
+                    return "no_changes"  # No changes to make
+        
+        # If we reach here, either no FCA_Registration_Number was provided or no existing record found
+        # Proceed with insert
         insert_query = """
         INSERT INTO Broker (
-            Broker_ID, Broker_Name, Commission
-        ) VALUES (?, ?, ?)
+            Broker_ID, Broker_Name, Commission, Date_Of_Onboarding,
+            FCA_Registration_Number, Broker_Type, Market_Access, Delegated_Authority, Longevity_Years, Date_Of_Expiry, Status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         values = (
             broker_data.get("Broker_ID"),
             broker_data.get("Broker_Name"),
-            broker_data.get("Commission")
+            broker_data.get("Commission"),
+            broker_data.get("Date_Of_Onboarding"),
+            fca_registration,
+            broker_data.get("Broker_Type"),
+            broker_data.get("Market_Access"),
+            broker_data.get("Delegated_Authority"),
+            broker_data.get("Longevity_Years"),
+            broker_data.get("Date_Of_Expiry"),
+            broker_data.get("Status", "Active")  # Default to Active if not provided
+            
         )
         
         cursor.execute(insert_query, values)
         conn.commit()
-        
-        st.success(f"🎉 Successfully inserted broker: {broker_data.get('Broker_ID')} - {broker_data.get('Broker_Name')}")
+        return "inserted"  # Return status to indicate an insert occurred
         
     except pyodbc.IntegrityError as e:
         if conn:
@@ -358,12 +476,12 @@ def insert_broker(broker_data):
     except pyodbc.Error as e:
         if conn:
             conn.rollback()
-        st.error(f"Database error during broker insertion: {e}")
+        st.error(f"Database error during broker operation: {e}")
         raise
     except Exception as e:
         if conn:
             conn.rollback()
-        st.error(f"Unexpected error during broker insertion: {e}")
+        st.error(f"Unexpected error during broker operation: {e}")
         raise
     finally:
         if conn:
@@ -383,14 +501,20 @@ def insert_insurer(insurer_data):
         
         if not insurers:
             raise ValueError("No insurers provided in the data")
-        
+
+        # Find lead insurer (one with max participation)
+        lead_insurer_id = max(insurers, key=lambda x: x.get('Participation', 0)).get('Insurer_ID')
+
         # Insert each insurer record
         for i, insurer in enumerate(insurers):
             insert_query = """
-            INSERT INTO insurer (
-                Facility_ID, Facility_Name, Group_Size, Insurer_ID, Insurer_Name, Participation
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """
+                INSERT INTO insurer (
+                    Facility_ID, Facility_Name, Group_Size, Insurer_ID, Insurer_Name, Participation,
+                    Date_Of_Onboarding, FCA_Registration_Number, Insurer_Type, Delegated_Authority, LeadInsurer,
+                    Longevity_Years, Status, Date_Of_Expiry
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+
             
             values = (
                 insurer_data.get("Facility_ID"),
@@ -398,8 +522,18 @@ def insert_insurer(insurer_data):
                 insurer_data.get("Group_Size"),
                 insurer.get("Insurer_ID"),
                 insurer.get("Insurer_Name"),
-                insurer.get("Participation")
+                insurer.get("Participation"),
+                insurer_data.get("Date_Of_Onboarding"),
+                insurer.get("FCA_Registration_Number"),
+                insurer.get("Insurer_Type"),
+                insurer.get("Delegated_Authority"),
+                1 if insurer.get("Insurer_ID") == lead_insurer_id else 0,
+                insurer.get("Longevity_Years", 0),  # Default to 0 if not provided
+                insurer.get("Status", "Active"),  # Default to Active if not provided
+                insurer.get("Date_Of_Expiry", None)  # Default to None if not provided
+
             )
+
             
             try:
                 cursor.execute(insert_query, values)
@@ -410,6 +544,7 @@ def insert_insurer(insurer_data):
         
         conn.commit()
         st.success(f"🎉 Successfully inserted all {len(insurers)} insurer(s) for facility {insurer_data.get('Facility_ID')}")
+        time.sleep(5)  # Pause for a moment to let the user see the success message
         
     except pyodbc.IntegrityError as e:
         if conn:

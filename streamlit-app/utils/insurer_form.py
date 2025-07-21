@@ -1,18 +1,64 @@
 import streamlit as st
+import random
+import string
 from db_utils import fetch_data
+from datetime import date, datetime, timedelta
+import time
 
-
-
-def check_facility_exists(facility_id):
-    """Check if Facility ID already exists in database"""
+def generate_facility_id():
+    """Generate facility ID by incrementing the last used facility ID by 1"""
     try:
-        query = "SELECT COUNT(*) FROM insurer WHERE Facility_ID = ?"
-        result = fetch_data(f"SELECT COUNT(*) as count FROM insurer WHERE Facility_ID = '{facility_id}'")
-        if result and result[0]['count'] > 0:
-            return True
-        return False
-    except Exception:
-        return False
+        # Query to get the last facility ID, sorted in descending order
+        query = "SELECT TOP 1 Facility_ID FROM insurer ORDER BY Facility_ID DESC"
+        result = fetch_data(query)
+        
+        if result and result[0]['Facility_ID']:
+            # Extract the existing facility ID
+            last_id = result[0]['Facility_ID']
+            
+            # Parse the existing ID - assuming format is "FACNNN" where NNN is a number
+            prefix = "FAC"
+            if last_id.startswith(prefix) and len(last_id) >= len(prefix):
+                # Extract the numeric part
+                num_part = last_id[len(prefix):]
+                
+                try:
+                    # Try to convert to integer and increment
+                    next_num = int(num_part) + 1
+                    # Format with leading zeros to maintain consistent length
+                    # If numpart was "001", we want to maintain 3 digits: "002"
+                    next_id = f"{prefix}{next_num:0{len(num_part)}d}"
+                    return next_id
+                except ValueError:
+                    # If the numeric part isn't a valid integer, fall back to default
+                    pass
+        
+        # Default case: If no previous ID exists or can't be parsed
+        return "FAC001"  # Start with FAC001
+        
+    except Exception as e:
+        # Log the error and return default ID
+        print(f"Error generating facility ID: {e}")
+        return "FAC001"  # Default fallback
+
+def generate_insurer_id():
+    # Generate two random uppercase letters
+    random_letters = ''.join(random.choices(string.ascii_uppercase, k=2))
+    # Get current datetime as YYYYMMDDHHMMSS
+    dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    # Format: INSXXYYYYMMDDHHMMSS
+    return f"INS{random_letters}{dt_str}"
+
+# def check_facility_exists(facility_id):
+#     """Check if Facility ID already exists in database"""
+#     try:
+#         query = "SELECT COUNT(*) FROM insurer WHERE Facility_ID = ?"
+#         result = fetch_data(f"SELECT COUNT(*) as count FROM insurer WHERE Facility_ID = '{facility_id}'")
+#         if result and result[0]['count'] > 0:
+#             return True
+#         return False
+#     except Exception:
+#         return False
 
 def insurer_form(defaults=None):
     """Form for adding/editing insurer information"""
@@ -25,21 +71,23 @@ def insurer_form(defaults=None):
     
     # Facility Details Section (outside the main form)
     st.subheader("Facility Information")
-    col1, col2, col3 = st.columns(3)
+    col2, col3,col1 = st.columns(3)
     
-    with col1:
+    # with col1:
         # facility_id = st.text_input("Facility ID *", value=defaults.get("Facility_ID", ""),
-        #                            help="Format: FACXXX (e.g., FAC001)", key="facility_id_input")
-
-        facility_id = st.text_input("Facility ID *", value=defaults.get("Facility_ID", ""),
-                                help="Format: FACXXX (e.g., FAC001)", key="facility_id_input")
+        #                         help="Format: FACXXX (e.g., FAC001)", key="facility_id_input")
         
         # Real-time validation
-        if facility_id and len(facility_id) >= 3:
-            if check_facility_exists(facility_id):
-                st.warning(f"⚠️ Facility ID '{facility_id}' already exists!")
-            else:
-                st.success(f"✅ Facility ID '{facility_id}' is available")
+        # if facility_id and len(facility_id) >= 3:
+        #     if check_facility_exists(facility_id):
+        #         st.warning(f"⚠️ Facility ID '{facility_id}' already exists!")
+        #     else:
+        #         st.success(f"✅ Facility ID '{facility_id}' is available")
+    with col1:
+        date_of_onboarding = st.date_input(
+                "Date of Onboarding *", 
+                value=defaults.get("Date_Of_Onboarding", date.today())
+            )
     with col2:
         facility_name = st.text_input("Facility Name *", value=defaults.get("Facility_Name", ""),
                                      key="facility_name_input")
@@ -71,27 +119,22 @@ def insurer_form(defaults=None):
             st.markdown(f"**Insurer {i+1}**")
             
             # Create columns for each insurer
-            col_id, col_name, col_participation = st.columns(3)
+            col_name, col_participation,_ = st.columns(3)
             
             # Get default values for this insurer if available
             insurer_defaults = defaults.get("insurers", [])
             current_insurer = insurer_defaults[i] if i < len(insurer_defaults) else {}
             
-            insurer_id = col_id.text_input(
-                f"Insurer ID {i+1} *", 
-                value=current_insurer.get("Insurer_ID", ""),
-                help="Format: INSXX#### (e.g., INSBI5019)",
-                key=f"insurer_id_{i}"
-            )
+            insurer_id = generate_insurer_id()
             
             insurer_name = col_name.text_input(
-                f"Insurer Name {i+1} *", 
+                f"Insurer Name *", 
                 value=current_insurer.get("Insurer_Name", ""),
                 key=f"insurer_name_{i}"
             )
             
             participation = col_participation.number_input(
-                f"Participation % {i+1}", 
+                f"Participation % *", 
                 value=float(current_insurer.get("Participation", 0.0)), 
                 min_value=0.0, 
                 max_value=100.0, 
@@ -101,11 +144,45 @@ def insurer_form(defaults=None):
             )
             
             total_participation += participation
+
+            col_fca, col_type,_ = st.columns(3)
+            
+            fca_registration = col_fca.text_input(
+                f"FCA Registration Number *", 
+                value=current_insurer.get("FCA_Registration_Number", ""),
+                key=f"fca_registration_{i}"
+            )
+            insurer_type = col_type.selectbox(
+                f"Insurer Type *", 
+                options=["Direct", "Reinsurer", "Broker"],
+                index=current_insurer.get("Insurer_Type_Index", 0),
+                key=f"insurer_type_{i}"
+            )
+
+            col_long_year,_,_ = st.columns(3)
+            longevity_years = col_long_year.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years_{i}")
+            delegated_authority = st.checkbox(
+                f"Delegated Authority *", 
+                value=current_insurer.get("Delegated_Authority", False),
+                key=f"delegated_authority_{i}"
+            )
+            # lead_insurer = st.checkbox(
+            #     f"Lead Insurer *", 
+            #     value=current_insurer.get("LeadInsurer", False),
+            #     key=f"lead_insurer_{i}"
+            # )
+
             
             insurers_data.append({
                 "Insurer_ID": insurer_id,
                 "Insurer_Name": insurer_name,
-                "Participation": participation
+                "Participation": participation,
+                "FCA_Registration_Number": fca_registration,
+                "Insurer_Type": insurer_type,
+                "Longevity_Years": longevity_years,
+                "Delegated_Authority": delegated_authority,
+                "Status": "Active" if date_of_onboarding and (date_of_onboarding + timedelta(days=longevity_years * 365)) > date.today() else "Completed",
+                "Date_Of_Expiry": (date_of_onboarding + timedelta(days=longevity_years * 365)).strftime("%Y-%m-%d") if date_of_onboarding else None,
             })
             
             # Add a separator between insurers (except for the last one)
@@ -132,7 +209,8 @@ def insurer_form(defaults=None):
         
         # Get facility data from session state inputs
         form_data = {
-            "Facility_ID": facility_id,
+            "Date_Of_Onboarding": date_of_onboarding,
+            "Facility_ID": generate_facility_id(),
             "Facility_Name": facility_name,
             "Group_Size": group_size,
             "insurers": insurers_data,
@@ -143,7 +221,6 @@ def insurer_form(defaults=None):
         if submit:
             # Validate facility information
             mandatory_facility_fields = [
-                ("Facility ID", facility_id),
                 ("Facility Name", facility_name),
                 ("Group Size", str(group_size))
             ]
@@ -153,32 +230,27 @@ def insurer_form(defaults=None):
                 st.error(f"Please fill all mandatory facility fields: {', '.join(missing_facility)}.")
                 return form_data, False, back
             
-            # Validate Facility ID format
-            if not facility_id.startswith("FAC") or len(facility_id) != 6:
-                st.error("Facility ID must follow format: FACXXX (e.g., FAC001)")
-                return form_data, False, back
-            
             # Validate each insurer
             for i, insurer in enumerate(insurers_data):
                 # Check mandatory fields for each insurer
-                if not insurer["Insurer_ID"] or not insurer["Insurer_ID"].strip():
-                    st.error(f"Insurer ID for Insurer {i+1} is mandatory.")
-                    return form_data, False, back
+                # if not insurer["Insurer_ID"] or not insurer["Insurer_ID"].strip():
+                #     st.error(f"Insurer ID for Insurer {i+1} is mandatory.")
+                #     return form_data, False, back
                 
                 if not insurer["Insurer_Name"] or not insurer["Insurer_Name"].strip():
                     st.error(f"Insurer Name for Insurer {i+1} is mandatory.")
                     return form_data, False, back
                 
                 # Validate Insurer ID format
-                if not insurer["Insurer_ID"].startswith("INS") or len(insurer["Insurer_ID"]) != 9:
-                    st.error(f"Insurer ID {i+1} must follow format: INSXX#### (e.g., INSBI5019)")
-                    return form_data, False, back
+                # if not insurer["Insurer_ID"].startswith("INS") or len(insurer["Insurer_ID"]) != 9:
+                #     st.error(f"Insurer ID {i+1} must follow format: INSXX#### (e.g., INSBI5019)")
+                #     return form_data, False, back
                 
                 # Check for duplicate Insurer IDs
-                for j, other_insurer in enumerate(insurers_data):
-                    if i != j and insurer["Insurer_ID"] == other_insurer["Insurer_ID"]:
-                        st.error(f"Duplicate Insurer ID found: {insurer['Insurer_ID']} (Insurer {i+1} and {j+1})")
-                        return form_data, False, back
+                # for j, other_insurer in enumerate(insurers_data):
+                #     if i != j and insurer["Insurer_ID"] == other_insurer["Insurer_ID"]:
+                #         st.error(f"Duplicate Insurer ID found: {insurer['Insurer_ID']} (Insurer {i+1} and {j+1})")
+                #         return form_data, False, back
             
             # Validate total participation for multiple insurers
             if group_size > 1 and abs(total_participation - 100.0) > 0.01:  # Allow small floating point differences
@@ -193,7 +265,7 @@ def insurer_form(defaults=None):
         return form_data, submit, back
 
 
-def insurer_form_preview():
+# def insurer_form_preview():
     """Preview the insurer form structure without submission"""
     st.subheader("Insurer Form Preview")
     
@@ -213,12 +285,23 @@ def insurer_form_preview():
                 st.text_input(f"Insurer Name {i+1}", disabled=True, placeholder="Insurance Company Name")
             with col3:
                 st.number_input(f"Participation % {i+1}", disabled=True, value=0.0)
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.date_input(f"Date of Onboarding {i+1}", disabled=True)
+            with col5:
+                st.text_input(f"FCA Registration Number {i+1}", disabled=True, placeholder="FCA123456")
+            with col6:
+                st.selectbox(f"Insurer Type {i+1}", 
+                            options=["Direct", "Reinsurer", "Broker"], 
+                            index=0, disabled=True)
+            st.checkbox(f"Delegated Authority {i+1}", disabled=True)
+            st.checkbox(f"Lead Insurer {i+1}", disabled=True)
     
     if group_size > 1:
         st.info(f"💡 For {group_size} insurers, the total participation should equal 100%")
 
 
-def reset_insurer_form():
+# def reset_insurer_form():
     """Reset the insurer form session state"""
     if "insurer_group_size" in st.session_state:
         del st.session_state.insurer_group_size
@@ -240,17 +323,31 @@ def insurer_summary_display(insurer_data):
         st.write(f"**Facility ID:** {insurer_data['Facility_ID']}")
         st.write(f"**Facility Name:** {insurer_data['Facility_Name']}")
         st.write(f"**Group Size:** {insurer_data['Group_Size']}")
+        st.write(f"  • Date of Onboarding: {insurer_data['Date_Of_Onboarding']}")
         st.write(f"**Total Participation:** {insurer_data.get('Total_Participation', 0):.2f}%")
     
     with col2:
         st.subheader("Insurers in this Facility")
         insurers = insurer_data.get('insurers', [])
-        
+        if insurers:
+            lead_insurer_id = max(insurers, key=lambda x: x.get('Participation', 0)).get('Insurer_ID')
+
+        # Set LeadInsurer flag for each insurer
+        for insurer in insurers:
+            insurer['LeadInsurer'] = (insurer.get('Insurer_ID') == lead_insurer_id)
+
         for i, insurer in enumerate(insurers):
             st.markdown(f"**Insurer {i+1}:**")
             st.write(f"  • ID: {insurer['Insurer_ID']}")
             st.write(f"  • Name: {insurer['Insurer_Name']}")
             st.write(f"  • Participation: {insurer['Participation']:.2f}%")
+            st.write(f"  • FCA Registration Number: {insurer['FCA_Registration_Number']}")
+            st.write(f"  • Insurer Type: {insurer['Insurer_Type']}")
+            st.write(f"  • Lead Insurer: {'Yes' if insurer.get('LeadInsurer') else 'No'}")
+            st.write(f"  • Delegated Authority: {'Yes' if insurer['Delegated_Authority'] else 'No'}")
+            st.write(f"  • Longevity (Years): {insurer['Longevity_Years']}")
+            st.write(f"  • Status: {insurer['Status']}")
+            st.write(f"  • Date of Expiry: {insurer['Date_Of_Expiry']}")
             if i < len(insurers) - 1:
                 st.markdown("---")
 

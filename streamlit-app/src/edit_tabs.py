@@ -22,61 +22,73 @@ import time
 from datetime import datetime, date
 
 
-# def policy_edit_tab():
-#     st.header("Policy Edit")
-#     if "policy_edit_page" not in st.session_state:
-#         st.session_state.policy_edit_page = "main"
+def new_submission_tab():
+    st.header("Submission")
+    if "submission_mode" not in st.session_state:
+        st.session_state.submission_mode = None
 
-#     if st.session_state.policy_edit_page == "main":
-#         transaction_type = st.selectbox("Select Transaction Type", ["Pre-Bind", "New Business", "MTA", "Renewal", "Policy Cancellation"])
-#         if st.button("Proceed", key="policy_proceed_btn"):
-#             st.session_state.transaction_type = transaction_type
-#             st.session_state.policy_edit_page = "transaction_form"
-#             st.rerun()
+    col1,_, col2,_, col3 = st.columns(5)
+    with col1:
+        st.markdown("""
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
+            <h4 style="color: #0066cc;">New Policy Submission</h4>
+            <p>View insurance policies. Track policy details, premiums, and renewal dates.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        policy_btn = st.button("Policy", use_container_width=True, type="primary")
+    with col2:
+        st.markdown("""
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
+            <h4 style="color: #0066cc;">New Claims Processing</h4>
+            <p>View insurance claims. Track claim status, payments, and settlement details.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        claims_btn = st.button("Claims", use_container_width=True, type="primary")
+    with col3:
+        st.markdown("""
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
+            <h4 style="color: #0066cc;">New Document Upload</h4>
+            <p>Upload documents related to policies and claims.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        upload_btn = st.button("Upload", use_container_width=True, type="primary")
+
+    if policy_btn:
+        st.session_state.submission_mode = "policy"
+        st.rerun()
+    elif claims_btn:
+        st.session_state.submission_mode = "claims"
+        st.rerun()
+    elif upload_btn:
+        st.session_state.submission_mode = "upload"
+        st.rerun()
+
+    # Show the corresponding tab
+    if st.session_state.submission_mode == "policy":
+        policy_edit_tab()
+    elif st.session_state.submission_mode == "claims":
+        claims_edit_tab()
+    elif st.session_state.submission_mode == "upload":
+        st.info("Upload feature coming soon!")
 
 def policy_edit_tab():
-    st.header("Policy Edit")
+    st.header("Policy")
     if "policy_edit_page" not in st.session_state:
         st.session_state.policy_edit_page = "main"
     if "policy_entry_mode" not in st.session_state:
         st.session_state.policy_entry_mode = None
 
     if st.session_state.policy_edit_page == "main":
-        st.markdown("#### Select Method of Policy Entry")
-        st.markdown("<div style='margin-top: 50px'></div>", unsafe_allow_html=True)
-        _,_, col1,_,_,_,_ ,col2,_,_,_ = st.columns(11)
-        
-
-        with col1:
-            manual_btn = st.button("Manual", key="manual_entry_btn",type="primary", use_container_width=True)
-        with col2:
-            upload_btn = st.button("Upload", key="upload_btn", type="primary", use_container_width=True)
-
-        if manual_btn:
-            st.session_state.policy_entry_mode = "manual"
+        transaction_type = st.selectbox("Select Transaction Type",["New Business", "MTA", "Renewal", "Policy Cancellation"])
+        if st.button("Proceed", key="policy_proceed_btn"):
+            st.session_state.transaction_type = transaction_type
+            st.session_state.policy_edit_page = "transaction_form"
+            st.session_state.policy_entry_mode = None
             st.rerun()
-        elif upload_btn:
-            st.session_state.policy_entry_mode = "upload"
-            st.rerun()
-
-        # Show transaction type selection only if manual selected
-        if st.session_state.policy_entry_mode == "manual":
-            transaction_type = st.selectbox(
-                "Select Transaction Type",
-                ["New Business", "MTA", "Renewal", "Policy Cancellation"], width=500, 
-            )
-            if st.button("Proceed", key="policy_proceed_btn"):
-                st.session_state.transaction_type = transaction_type
-                st.session_state.policy_edit_page = "transaction_form"
-                st.session_state.policy_entry_mode = None
-                st.rerun()
-        elif st.session_state.policy_entry_mode in ["upload"]:
-            st.info("Feature coming soon!")
 
     elif st.session_state.policy_edit_page == "transaction_form":
         ttype = st.session_state.transaction_type
         st.markdown(f"### {ttype} Form")
-
 
         if ttype == "New Business":
             if "show_policy_summary" not in st.session_state:
@@ -117,130 +129,9 @@ def policy_edit_tab():
                         del st.session_state.policy_data
                     st.rerun()
 
-        # elif ttype == "Pre-Bind":
-        #     if "prebind_step" not in st.session_state:
-        #         st.session_state.prebind_step = "quotation_form"
-            
-        #     if st.session_state.prebind_step == "quotation_form":
-        #         st.markdown("#### Pre-Bind Quotation Form")
-                
-        #         # Use the prebind quotation form
-        #         form_data, submit, back, missing_fields = prebind_quotation_form()
-                
-        #         if submit:
-        #             if missing_fields:
-        #                 st.error(f"Please fill all mandatory fields: {', '.join(missing_fields)}")
-        #             else:
-        #                 try:
-        #                     # Insert quotation into database
-        #                     insert_quotation(form_data)
-        #                     st.session_state.quotation_data = form_data
-        #                     st.session_state.prebind_step = "quotation_summary"
-        #                     st.success("Quotation generated successfully!")
-        #                     st.rerun()
-        #                 except Exception as e:
-        #                     st.error(f"Failed to generate quotation: {e}")
-                
-        #         if back:
-        #             st.session_state.policy_edit_page = "main"
-        #             st.session_state.prebind_step = "quotation_form"
-        #             if "temp_policy_id" in st.session_state:
-        #                 del st.session_state.temp_policy_id
-        #             st.rerun()
-            
-        #     elif st.session_state.prebind_step == "quotation_summary":
-        #         quotation_data = st.session_state.quotation_data
-                
-        #         # Display quotation summary
-        #         quotation_summary_display(quotation_data)
-                
-        #         # Action buttons
-        #         download_pdf, send_quote, convert_policy, back_to_form = quotation_action_buttons()
-                
-        #         if download_pdf:
-        #             # Generate PDF
-        #             pdf = FPDF()
-        #             pdf.add_page()
-        #             pdf.set_font("Arial", size=12)
-        #             pdf.cell(200, 10, txt="Quotation Summary", ln=True, align="C")
-        #             pdf.ln(10)
-        #             for key, value in quotation_data.items():
-        #                 pdf.cell(0, 10, f"{key}: {value}", ln=True)
-        #             # Output PDF to bytes
-        #             pdf_bytes = pdf.output(dest='S').encode('latin1')
-        #             st.download_button(
-        #                 label="Download Quotation PDF",
-        #                 data=pdf_bytes,
-        #                 file_name=f"Quotation_{quotation_data.get('POLICY_NO', 'quotation')}.pdf",
-        #                 mime="application/pdf"
-        #             )
-                
-        #         if send_quote:
-        #             # Update status to "Sent"
-        #             st.session_state.quotation_data['STATUS'] = "Sent"
-        #             st.success("Quote status updated to 'Sent'")
-        #             st.rerun()
-                
-        #         if convert_policy:
-        #             # Navigate to policy conversion
-        #             st.session_state.prebind_step = "convert_policy"
-        #             st.rerun()
-                
-        #         if back_to_form:
-        #             st.session_state.prebind_step = "quotation_form"
-        #             st.rerun()
-                
-        #         # Display quotation history
-        #         quotation_history_display(quotation_data.get("CUST_ID", ""))
-                
-        #         if st.button("Back to Main", key="back_to_main"):
-        #             st.session_state.policy_edit_page = "main"
-        #             st.session_state.prebind_step = "quotation_form"
-        #             if "temp_policy_id" in st.session_state:
-        #                 del st.session_state.temp_policy_id
-        #             if "quotation_data" in st.session_state:
-        #                 del st.session_state.quotation_data
-        #             st.rerun()
-            
-        #     elif st.session_state.prebind_step == "convert_policy":
-        #         st.markdown("#### Convert Quotation to Policy")
-        #         quotation_data = st.session_state.quotation_data
-                
-        #         # Convert quotation data to policy form defaults
-        #         policy_defaults = convert_quotation_to_policy_data(quotation_data)
-                
-        #         # Use policy manual form with pre-filled data
-        #         form_data, submit, back = policy_manual_form(defaults=policy_defaults)
-                
-        #         if submit:
-        #             if not form_data["POLICY_NO"].strip():
-        #                 st.error("Please enter a Policy Number.")
-        #             else:
-        #                 form_data["TransactionType"] = "New Business"
-        #                 try:
-        #                     insert_policy(form_data)
-        #                     # Mark quotation as converted
-        #                     mark_quotation_converted(quotation_data["TEMP_POLICY_ID"], form_data["POLICY_NO"])
-        #                     st.success(f"Policy {form_data['POLICY_NO']} created successfully from quotation!")
-        #                     time.sleep(5)
-                            
-        #                     # Clean up session state
-        #                     st.session_state.policy_edit_page = "main"
-        #                     st.session_state.prebind_step = "quotation_form"
-        #                     if "temp_policy_id" in st.session_state:
-        #                         del st.session_state.temp_policy_id
-        #                     if "quotation_data" in st.session_state:
-        #                         del st.session_state.quotation_data
-        #                     st.rerun()
-        #                 except Exception as e:
-        #                     st.error(f"Failed to create policy: {e}")
-                
-        #         if back:
-        #             st.session_state.prebind_step = "quotation_summary"
-        #             st.rerun()
+# Pre-Bind Not Implemented
 
         ######
-        
         elif ttype == "Policy Cancellation":
             if "cancel_policy_fetched" not in st.session_state:
                 st.session_state.cancel_policy_fetched = False
@@ -506,9 +397,6 @@ def policy_edit_tab():
                         del st.session_state.mta_changes
                     st.rerun()
 
-
-
-
         #############
         else:  # Renewal
             if "renewal_policy_fetched" not in st.session_state:
@@ -666,7 +554,7 @@ def policy_edit_tab():
                     st.rerun()
 
 def claims_edit_tab():
-    st.header("Claims Edit")
+    st.header("Claims")
     
     if "claims_edit_page" not in st.session_state:
         st.session_state.claims_edit_page = "main"
@@ -677,7 +565,6 @@ def claims_edit_tab():
             ["New Claim", "Claim Update", "Claim Closure", "Claim Reopen"]
         )
 
-        st.markdown("<div style='margin-top: 50px'></div>", unsafe_allow_html=True)
 
         if st.button("Proceed", key="claims_proceed_btn"):
             st.session_state.claims_transaction_type = transaction_type
@@ -714,21 +601,6 @@ def claims_edit_tab():
                     intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
                     account_code_value = st.text_input("Account Code", value="")  # Replace with actual value if needed
 
-                # # Vehicle details section (auto-filled from Policy)
-                # st.markdown("#### Vehicle Details (Auto-filled from Policy)")
-                # vehicle_col1, vehicle_col2 = st.columns(2)
-                
-                # with vehicle_col1:
-                #     make = st.text_input("Make", disabled=True, key="claim_make")
-                #     model = st.text_input("Model", disabled=True, key="claim_model")
-                #     chassis_no = st.text_input("Chassis No", disabled=True, key="claim_chassis")
-                #     product = st.text_input("Product", disabled=True)
-
-                
-                # with vehicle_col2:
-                #     regn = st.text_input("Registration No", disabled=True, key="claim_regn")
-                #     model_year = st.text_input("Model Year", disabled=True, key="claim_year")
-                #     sum_insured = st.text_input("Sum Insured", disabled=True, key="claim_sum_insured")
                 submit = st.form_submit_button("Submit New Claim")
                 back = st.form_submit_button("Back")
 

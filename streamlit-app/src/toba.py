@@ -39,7 +39,7 @@ def toba_tab():
         _, col1, _, col2, _, col3, _ = st.columns(7)
 
         with col1:
-            st.markdown("#### Broker Management")
+            st.markdown("##### Broker Management")
             if st.button("Add New Broker", use_container_width=True, type="primary"):
                 st.session_state.toba_entry_type = "Broker"
                 st.session_state.toba_page = "form"
@@ -51,7 +51,7 @@ def toba_tab():
                 st.rerun()
         
         with col2:
-            st.markdown("#### Insurer Management")
+            st.markdown("##### Insurer Management")
             if st.button("Add New Insurer", use_container_width=True, type="primary"):
                 st.session_state.toba_entry_type = "Insurer"
                 st.session_state.toba_page = "form"
@@ -64,8 +64,8 @@ def toba_tab():
         
         # Working on upload status
         with col3:
-            st.markdown("#### Upload TOBA")
-            if st.button("Upload", use_container_width=True, type="primary"):
+            st.markdown("##### Upload TOBA")
+            if st.button("Upload", use_container_width=True, type="primary", key="toba_upload_btn"):
                 st.session_state.toba_page = "upload_toba"
                 st.rerun()
 
@@ -195,7 +195,7 @@ def toba_tab():
         except Exception as e:
             st.error(f"Failed to fetch brokers: {e}")
         
-        if st.button("🏠 Back to Main"):
+        if st.button("Back to Main"):
             st.session_state.toba_page = "main"
             st.rerun()
     ###
@@ -210,14 +210,11 @@ def toba_tab():
                 df = pd.DataFrame(insurers)
                 
                 # Display summary statistics
-                col1, col2, col3 = st.columns(3)
+                col1, _,_, col2 = st.columns(4)
                 with col1:
                     st.metric("Total Facilities", df['Facility_ID'].nunique())
                 with col2:
-                    st.metric("Total Insurers", len(df))
-                with col3:
-                    avg_participation = df['Participation'].mean()
-                    st.metric("Avg Participation", f"{avg_participation:.2f}%")
+                    st.metric("Total Insurers", df['Insurer_ID'].nunique())
                 
                 # Show the dataframe from index 1
                 df.index = df.index + 1
@@ -225,46 +222,51 @@ def toba_tab():
                 st.dataframe(df, use_container_width=True)
                 
                 # Optional: Group by Facility for better visualization
-                st.subheader("Insurers by Facility")
+                # st.subheader("Insurers by Facility")
                 
-                # Group by Facility_ID for better organization
-                facilities = df['Facility_ID'].unique()
+                # # Group by Facility_ID for better organization
+                # facilities = df['Facility_ID'].unique()
                 
-                for facility_id in sorted(facilities):
-                    facility_df = df[df['Facility_ID'] == facility_id]
-                    facility_name = facility_df['Facility_Name'].iloc[0]
-                    group_size = facility_df['Group_Size'].iloc[0]
-                    total_participation = facility_df['Participation'].sum()
+                # for facility_id in sorted(facilities):
+                #     facility_df = df[df['Facility_ID'] == facility_id]
+                #     facility_name = facility_df['Facility_Name'].iloc[0]
+                #     group_size = facility_df['Group_Size'].iloc[0]
+                #     total_participation = facility_df['Participation'].sum()
                     
-                    with st.expander(f"📋 {facility_id} - {facility_name} (Group Size: {group_size})"):
-                        st.write(f"**Total Participation:** {total_participation:.2f}%")
+                #     with st.expander(f"📋 {facility_id} - {facility_name} (Group Size: {group_size})"):
+                #         st.write(f"**Total Participation:** {total_participation:.2f}%")
                         
-                        # Show participation status
-                        if abs(total_participation - 100.0) <= 0.01:
-                            st.success("✅ Perfect participation (100%)")
-                        elif total_participation < 100.0:
-                            st.warning(f"⚠️ Under-allocated: {100 - total_participation:.2f}% missing")
-                        else:
-                            st.error(f"❌ Over-allocated: {total_participation - 100:.2f}% excess")
+                #         # Show participation status
+                #         if abs(total_participation - 100.0) <= 0.01:
+                #             st.success("✅ Perfect participation (100%)")
+                #         elif total_participation < 100.0:
+                #             st.warning(f"⚠️ Under-allocated: {100 - total_participation:.2f}% missing")
+                #         else:
+                #             st.error(f"❌ Over-allocated: {total_participation - 100:.2f}% excess")
                         
-                        # Display insurers in this facility
-                        facility_display_df = facility_df[['Insurer_ID', 'Insurer_Name', 'Participation']].copy()
-                        facility_display_df = facility_display_df.sort_values('Participation', ascending=False)
-                        st.dataframe(facility_display_df, use_container_width=True, hide_index=True)
+                #         # Display insurers in this facility
+                #         facility_display_df = facility_df[['Insurer_ID', 'Insurer_Name', 'Participation']].copy()
+                #         facility_display_df = facility_display_df.sort_values('Participation', ascending=False)
+                #         st.dataframe(facility_display_df, use_container_width=True, hide_index=True)
                         
-                        # Show participation chart for this facility
-                        if len(facility_display_df) > 1:
-                            st.bar_chart(facility_display_df.set_index('Insurer_ID')['Participation'])
+                #         # Show participation chart for this facility
+                #         if len(facility_display_df) > 1:
+                #             st.bar_chart(facility_display_df.set_index('Insurer_ID')['Participation'])
+                if st.button("Back to Main"):
+                    st.session_state.toba_page = "main"
+                    st.rerun()
             else:
                 st.info("No insurers found in the database.")
         except Exception as e:
             st.error(f"Failed to fetch insurers: {e}")
+
+            
         
     elif st.session_state.toba_page == "upload_toba":
         st.subheader("Upload TOBA File")
         uploaded_file = st.file_uploader("File input", type=["pdf"], key="toba_upload")
         
-        if st.button("🏠 Back to Main"):
+        if st.button("Back to Main"):
             st.session_state.toba_page = "main"
             st.rerun()
     
@@ -284,8 +286,8 @@ def toba_tab():
 #         else:
 #             st.info("No insurers found in the database.")
 #     except Exception as e:
-#         st.error(f"Failed to fetch insurers: {e}")
+#         st.error(f"Failed to fetch insurers: {e}")    
     
-#     if st.button("🏠 Back to Main"):
+#     if st.button("Back to Main"):
 #         st.session_state.toba_page = "main"
 #         st.rerun()

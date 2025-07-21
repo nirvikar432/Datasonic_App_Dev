@@ -3,7 +3,7 @@ import pandas as pd
 from db_utils import fetch_data
 
 def policy_tab():
-    st.header("Policies")
+    st.header("Policy Management")
     policy_query = "SELECT TOP 100 * FROM Policy"
     policies = fetch_data(policy_query)
     df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()
@@ -12,7 +12,7 @@ def policy_tab():
     col1, col2 = st.columns([7, 3])
     with col2:
         search_col1, search_col2 = st.columns([40, 10])
-        policy_search = search_col1.text_input("Search", key="policy_search", placeholder="Global Search", label_visibility="collapsed")
+        policy_search = search_col1.text_input("Search", key="policy_search", placeholder="Search", label_visibility="collapsed")
         search_button = search_col2.button("🔎", key="policy_search_button")
     with col1:
         st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
