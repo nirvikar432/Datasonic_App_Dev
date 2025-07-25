@@ -1,6 +1,7 @@
 from datetime import time
 import pyodbc
 import streamlit as st
+import time
 
 def get_db_connection():
  
@@ -528,7 +529,7 @@ def insert_insurer(insurer_data):
                 insurer.get("Insurer_Type"),
                 insurer.get("Delegated_Authority"),
                 1 if insurer.get("Insurer_ID") == lead_insurer_id else 0,
-                insurer.get("Longevity_Years", 0),  # Default to 0 if not provided
+                insurer_data.get("Longevity_Years", 0),  # Default to 0 if not provided
                 insurer.get("Status", "Active"),  # Default to Active if not provided
                 insurer.get("Date_Of_Expiry", None)  # Default to None if not provided
 
@@ -538,12 +539,13 @@ def insert_insurer(insurer_data):
             try:
                 cursor.execute(insert_query, values)
                 st.info(f"✓ Inserted Insurer {i+1}: {insurer.get('Insurer_ID')} - {insurer.get('Insurer_Name')}")
+                time.sleep(2)  # Pause briefly to show each success message
             except Exception as e:
                 st.error(f"✗ Error inserting Insurer {i+1} ({insurer.get('Insurer_ID', 'Unknown')}): {e}")
                 raise
         
         conn.commit()
-        st.success(f"🎉 Successfully inserted all {len(insurers)} insurer(s) for facility {insurer_data.get('Facility_ID')}")
+        st.success(f"Successfully inserted all {len(insurers)} insurer(s) for facility {insurer_data.get('Facility_ID')}")
         time.sleep(5)  # Pause for a moment to let the user see the success message
         
     except pyodbc.IntegrityError as e:

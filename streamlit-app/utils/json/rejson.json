@@ -1,0 +1,19 @@
+{
+  "Type": "Renewal",
+  "EXECUTIVE": "TanSan Smith",
+  "BODY": "Hatchback",
+  "MAKE": "Porsche",
+  "MODEL": "Carera",
+  "USE_OF_VEHICLE": "Commercial",
+  "MODEL_YEAR": 2026,
+  "REGN": "North",
+  "SUM_INSURED": 750000,
+  "PREMIUM2": 35000,
+  "DRV_DOB": "1985-03-15",
+  "DRV_DLI": "2010-05-22",
+  "VEH_SEATS": 1,
+  "PRODUCT": "Comprehensive Motor Insurance",
+  "POLICYTYPE": "Individual",
+  "NATIONALITY": "Afghan",
+  "POLICY_NO": "POL-2023-78945"
+}

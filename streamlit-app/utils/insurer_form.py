@@ -71,8 +71,8 @@ def insurer_form(defaults=None):
     
     # Facility Details Section (outside the main form)
     st.subheader("Facility Information")
-    col2, col3,col1 = st.columns(3)
-    
+    col2, col3, col1, col4 = st.columns(4)
+
     # with col1:
         # facility_id = st.text_input("Facility ID *", value=defaults.get("Facility_ID", ""),
         #                         help="Format: FACXXX (e.g., FAC001)", key="facility_id_input")
@@ -98,6 +98,11 @@ def insurer_form(defaults=None):
                                     min_value=1, max_value=50, step=1,
                                     key="group_size_input",
                                     help="Number of insurers in this facility")
+    
+    with col4:
+        longevity_years = st.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
+
+
         
         # Update session state when group size changes
         if group_size != st.session_state.insurer_group_size:
@@ -119,7 +124,7 @@ def insurer_form(defaults=None):
             st.markdown(f"**Insurer {i+1}**")
             
             # Create columns for each insurer
-            col_name, col_participation,_ = st.columns(3)
+            col_name, col_participation = st.columns(2)
             
             # Get default values for this insurer if available
             insurer_defaults = defaults.get("insurers", [])
@@ -145,7 +150,7 @@ def insurer_form(defaults=None):
             
             total_participation += participation
 
-            col_fca, col_type,_ = st.columns(3)
+            col_fca, col_type = st.columns(2)
             
             fca_registration = col_fca.text_input(
                 f"FCA Registration Number *", 
@@ -159,8 +164,7 @@ def insurer_form(defaults=None):
                 key=f"insurer_type_{i}"
             )
 
-            col_long_year,_,_ = st.columns(3)
-            longevity_years = col_long_year.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years_{i}")
+            # longevity_years = col_long_year.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years_{i}")
             delegated_authority = st.checkbox(
                 f"Delegated Authority *", 
                 value=current_insurer.get("Delegated_Authority", False),
@@ -179,7 +183,7 @@ def insurer_form(defaults=None):
                 "Participation": participation,
                 "FCA_Registration_Number": fca_registration,
                 "Insurer_Type": insurer_type,
-                "Longevity_Years": longevity_years,
+                # "Longevity_Years": longevity_years,
                 "Delegated_Authority": delegated_authority,
                 "Status": "Active" if date_of_onboarding and (date_of_onboarding + timedelta(days=longevity_years * 365)) > date.today() else "Completed",
                 "Date_Of_Expiry": (date_of_onboarding + timedelta(days=longevity_years * 365)).strftime("%Y-%m-%d") if date_of_onboarding else None,
@@ -212,6 +216,7 @@ def insurer_form(defaults=None):
             "Date_Of_Onboarding": date_of_onboarding,
             "Facility_ID": generate_facility_id(),
             "Facility_Name": facility_name,
+            "Longevity_Years": longevity_years,
             "Group_Size": group_size,
             "insurers": insurers_data,
             "Total_Participation": total_participation
@@ -266,39 +271,39 @@ def insurer_form(defaults=None):
 
 
 # def insurer_form_preview():
-    """Preview the insurer form structure without submission"""
-    st.subheader("Insurer Form Preview")
+    # """Preview the insurer form structure without submission"""
+    # st.subheader("Insurer Form Preview")
     
-    # Group size selector
-    group_size = st.number_input("Select Group Size to Preview Form", 
-                                value=1, min_value=1, max_value=10, step=1)
+    # # Group size selector
+    # group_size = st.number_input("Select Group Size to Preview Form", 
+    #                             value=1, min_value=1, max_value=10, step=1)
     
-    st.markdown(f"**This will create {group_size} insurer input field(s):**")
+    # st.markdown(f"**This will create {group_size} insurer input field(s):**")
     
-    # Show preview of what fields will be created
-    for i in range(group_size):
-        with st.expander(f"Insurer {i+1} Fields"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.text_input(f"Insurer ID {i+1}", disabled=True, placeholder="INSXX####")
-            with col2:
-                st.text_input(f"Insurer Name {i+1}", disabled=True, placeholder="Insurance Company Name")
-            with col3:
-                st.number_input(f"Participation % {i+1}", disabled=True, value=0.0)
-            col4, col5, col6 = st.columns(3)
-            with col4:
-                st.date_input(f"Date of Onboarding {i+1}", disabled=True)
-            with col5:
-                st.text_input(f"FCA Registration Number {i+1}", disabled=True, placeholder="FCA123456")
-            with col6:
-                st.selectbox(f"Insurer Type {i+1}", 
-                            options=["Direct", "Reinsurer", "Broker"], 
-                            index=0, disabled=True)
-            st.checkbox(f"Delegated Authority {i+1}", disabled=True)
-            st.checkbox(f"Lead Insurer {i+1}", disabled=True)
+    # # Show preview of what fields will be created
+    # for i in range(group_size):
+    #     with st.expander(f"Insurer {i+1} Fields"):
+    #         col1, col2, col3 = st.columns(3)
+    #         with col1:
+    #             st.text_input(f"Insurer ID {i+1}", disabled=True, placeholder="INSXX####")
+    #         with col2:
+    #             st.text_input(f"Insurer Name {i+1}", disabled=True, placeholder="Insurance Company Name")
+    #         with col3:
+    #             st.number_input(f"Participation % {i+1}", disabled=True, value=0.0)
+    #         col4, col5, col6 = st.columns(3)
+    #         with col4:
+    #             st.date_input(f"Date of Onboarding {i+1}", disabled=True)
+    #         with col5:
+    #             st.text_input(f"FCA Registration Number {i+1}", disabled=True, placeholder="FCA123456")
+    #         with col6:
+    #             st.selectbox(f"Insurer Type {i+1}", 
+    #                         options=["Direct", "Reinsurer", "Broker"], 
+    #                         index=0, disabled=True)
+    #         st.checkbox(f"Delegated Authority {i+1}", disabled=True)
+    #         st.checkbox(f"Lead Insurer {i+1}", disabled=True)
     
-    if group_size > 1:
-        st.info(f"💡 For {group_size} insurers, the total participation should equal 100%")
+    # if group_size > 1:
+    #     st.info(f"💡 For {group_size} insurers, the total participation should equal 100%")
 
 
 # def reset_insurer_form():
@@ -323,7 +328,9 @@ def insurer_summary_display(insurer_data):
         st.write(f"**Facility ID:** {insurer_data['Facility_ID']}")
         st.write(f"**Facility Name:** {insurer_data['Facility_Name']}")
         st.write(f"**Group Size:** {insurer_data['Group_Size']}")
-        st.write(f"  • Date of Onboarding: {insurer_data['Date_Of_Onboarding']}")
+        st.write(f"**Date of Onboarding:** {insurer_data['Date_Of_Onboarding']}")
+        st.write(f"**Longevity (Years):** {insurer_data['Longevity_Years']}")
+
         st.write(f"**Total Participation:** {insurer_data.get('Total_Participation', 0):.2f}%")
     
     with col2:
@@ -345,7 +352,6 @@ def insurer_summary_display(insurer_data):
             st.write(f"  • Insurer Type: {insurer['Insurer_Type']}")
             st.write(f"  • Lead Insurer: {'Yes' if insurer.get('LeadInsurer') else 'No'}")
             st.write(f"  • Delegated Authority: {'Yes' if insurer['Delegated_Authority'] else 'No'}")
-            st.write(f"  • Longevity (Years): {insurer['Longevity_Years']}")
             st.write(f"  • Status: {insurer['Status']}")
             st.write(f"  • Date of Expiry: {insurer['Date_Of_Expiry']}")
             if i < len(insurers) - 1:

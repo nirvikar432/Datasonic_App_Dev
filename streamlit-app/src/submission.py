@@ -3,10 +3,10 @@ from policy_tabs import policy_tab
 from claims_tabs import claims_tab
 
 def submission_tab():
-    st.header("Submission") 
+    st.header("View Policies and Claims") 
     
     # Create two columns for the buttons
-    col1,_,col2 = st.columns(3)
+    col1,col2 = st.columns(2)
     
     # Add description boxes above each button
     with col1:

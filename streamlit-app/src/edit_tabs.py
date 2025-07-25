@@ -1,6 +1,12 @@
 import streamlit as st
 from fpdf import FPDF
 import io
+
+# from upload_doc import upload_document
+
+from auto_loader import load_policy_from_json, show_policy_form
+
+
 from policy_forms import (
     policy_manual_form,
     policy_summary_display,
@@ -23,11 +29,11 @@ from datetime import datetime, date
 
 
 def new_submission_tab():
-    st.header("Submission")
+    st.header("New Submission")
     if "submission_mode" not in st.session_state:
         st.session_state.submission_mode = None
 
-    col1,_, col2,_, col3 = st.columns(5)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
@@ -69,7 +75,11 @@ def new_submission_tab():
     elif st.session_state.submission_mode == "claims":
         claims_edit_tab()
     elif st.session_state.submission_mode == "upload":
-        st.info("Upload feature coming soon!")
+        # upload_document()
+        load_policy_from_json()
+    # if hasattr(st.session_state, "form_to_show") and st.session_state.form_to_show:
+        show_policy_form()
+        
 
 def policy_edit_tab():
     st.header("Policy")
@@ -596,7 +606,7 @@ def claims_edit_tab():
                 
                 with col2:
                     executive = st.text_input("Executive *")
-                    nationality = st.text_input("Nationality", value="Indian")
+                    nationality = st.text_input("Nationality")
                     claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True)
                     intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
                     account_code_value = st.text_input("Account Code", value="")  # Replace with actual value if needed
@@ -662,8 +672,13 @@ def claims_edit_tab():
                                         "PRODUCT": policy_data.get("PRODUCT", ""),
                                         "POLICYTYPE": policy_data.get("POLICYTYPE", ""),
                                         "NATIONALITY": nationality,
+                                        "Broker_ID": policy_data.get("Broker_ID", ""),
+                                        "Broker_Name": policy_data.get("Broker_Name", ""),
+                                        "Facility_ID": policy_data.get("Facility_ID", ""),
+                                        "Facility_Name": policy_data.get("Facility_Name", ""),
                                         "CLAIM_STAGE": "New Claim",
                                         "CLAIM_STATUS": "New Claim",
+                                        "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
 
                                     }
                                     
@@ -824,8 +839,8 @@ def claims_edit_tab():
                         st.text_input("Policy No", value=claim_data.get("POLICY_NO", ""), disabled=True)
                         st.text_input("Intimated Amount", value=str(claim_data.get("INTIMATED_AMOUNT", "")), disabled=True)
                     with col2:
-                        st.text_input("Current Status", value=claim_data.get("STATUS", ""), disabled=True)
-                        st.text_input("Claim Type", value=claim_data.get("CLAIM_TYPE", ""), disabled=True)
+                        st.text_input("Current Status", value=claim_data.get("CLAIM_STATUS", ""), disabled=True)
+                        st.text_input("Claim Type", value=claim_data.get("TYPE", ""), disabled=True)
                         st.text_input("Date of Accident", value=str(claim_data.get("DATE_OF_ACCIDENT", "")), disabled=True)
 
                     confirm_closure = st.checkbox("I confirm I want to close this claim")
@@ -841,7 +856,7 @@ def claims_edit_tab():
                             try:
                                 closure_data = {
                                     "FINAL_SETTLEMENT_AMOUNT": float(final_settlement),
-                                    "CLAIMCLOSUREDATE": closure_date,
+                                    "CLAIM_CLOSURE_DATE": closure_date,
                                     "CLAIM_STATUS": "Closed",
                                     "CLAIM_REMARKS": f"{claim_data.get('REMARKS', '')}\n\nClosure Remarks: {closure_remarks}",
                                     "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -909,7 +924,7 @@ def claims_edit_tab():
                         st.text_input("Policy No", value=claim_data.get("POLICY_NO", ""), disabled=True)
                         st.text_input("Final Settlement", value=str(claim_data.get("FINAL_SETTLEMENT_AMOUNT", "")), disabled=True)
                     with col2:
-                        st.text_input("Closure Date", value=str(claim_data.get("CLAIMCLOSUREDATE", "")), disabled=True)
+                        st.text_input("Closure Date", value=str(claim_data.get("CLAIM_CLOSURE_DATE", "")), disabled=True)
                         st.text_input("Claim Type", value=claim_data.get("TYPE", ""), disabled=True)
                         st.text_input("Executive", value=claim_data.get("EXECUTIVE", ""), disabled=True)
 
@@ -926,7 +941,7 @@ def claims_edit_tab():
                             try:
                                 reopen_data = {
                                     "CLAIM_STATUS": new_status,
-                                    "REOPEN_DATE": reopen_date,
+                                    "CLAIM_STAGE": "Reopened",
                                     "REOPEN_REASON": reason_for_reopen,
                                     "CLAIM_REMARKS": f"{claim_data.get('REMARKS', '')}\n\nReopened on {reopen_date}: {reason_for_reopen}",
                                     "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")

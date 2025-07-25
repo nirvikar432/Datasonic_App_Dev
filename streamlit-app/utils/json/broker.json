@@ -1,0 +1,11 @@
+{
+  "Type": "Broker", 
+  "Broker_Name": "Test Brokers Inc",
+  "Commission": 12.5,
+  "Date_Of_Onboarding": "2023-04-15",
+  "Longevity_Years": 5,
+  "FCA_Registration_Number": "FCA123456",
+  "Broker_Type_Index": 0,         
+  "Market_Access_Index": 0,       
+  "Delegated_Authority": true
+}

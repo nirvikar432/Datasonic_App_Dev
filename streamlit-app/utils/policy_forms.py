@@ -33,7 +33,7 @@ def policy_manual_form(defaults=None):
     
     # Broker Details Section
     st.subheader("Broker Details")
-    selected_broker = st.selectbox("Select Broker *", broker_names, key="broker_select")
+    selected_broker = st.selectbox("Select Broker *", broker_names, key="broker_select", index=broker_names.index(defaults.get("Broker_Name", "Select Broker"))  if defaults and defaults.get("Broker_Name", "Select Broker") in broker_names else 0)
     
     # Display broker details if a broker is selected
     if selected_broker and selected_broker != "Select Broker" and selected_broker != "No Brokers Found" and selected_broker != "Error loading brokers":
@@ -49,7 +49,7 @@ def policy_manual_form(defaults=None):
 
     # Insurer Details Section
     st.subheader("Insurer Details")
-    selected_facility = st.selectbox("Select Facility *", facility_names, key="facility_select")
+    selected_facility = st.selectbox("Select Facility *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
     
     # Display insurer details if a facility is selected
     if selected_facility and selected_facility != "Select Facility" and selected_facility != "No Facilities Found" and selected_facility != "Error loading facilities":
@@ -80,6 +80,7 @@ def policy_manual_form(defaults=None):
             } for insurer in facility_insurers])
             
             if not insurer_df.empty:
+                insurer_df.index = insurer_df.index + 1
                 st.table(insurer_df)
 
     with st.form("policy_manual_form"):
@@ -109,8 +110,14 @@ def policy_manual_form(defaults=None):
         # Driver Details Section
         st.subheader("Driver Details")
         col13, col14, col24 = st.columns(3)
-        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)))
-        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)))
+        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)),
+                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                   max_value=date.today()       # Allow up to current date
+        )
+        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)),
+                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                   max_value=date.today()       # Allow up to current date
+        )
         nationality = col24.text_input("NATIONALITY *", value=defaults.get("NATIONALITY", ""))
 
 
@@ -443,15 +450,23 @@ def policy_mta_form(defaults=None):
         # Driver Details Section
         st.subheader("Driver Details")
         col13, col14, col15 = st.columns(3)
-        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)))
-        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)))
+        drv_dob = col13.date_input(
+            "DRIVER DOB", 
+            value=defaults.get("DRV_DOB", date(2000,1,1)),
+            min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+            max_value=date.today()       # Allow up to current date
+        )
+        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)),
+                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                   max_value=date.today()       # Allow up to current date
+        )
 
         # Policy Details Section
         st.subheader("Policy Details")
         col16, col17, col18 = st.columns(3)
         policy_no = col16.text_input("POLICY NO", value=defaults.get("POLICY_NO", ""), disabled=True)
         policytype = col17.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
-        sum_insured = col18.text_input("SUM INSURED", value=str(defaults.get("SUM_INSURED", "")), disabled=True)
+        sum_insured = col18.text_input("SUM INSURED", value=str(defaults.get("SUM_INSURED", "")), disabled=False)
 
         col19, col20, col21 = st.columns(3)
         pol_issue_date = col19.date_input("POLICY ISSUE DATE", value=defaults.get("POL_ISSUE_DATE", date.today()), disabled=True)
@@ -596,8 +611,13 @@ def policy_renewal_form(defaults=None):
         # Driver Details Section
         st.subheader("Driver Details")
         col13, col14, col15 = st.columns(3)
-        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)))
-        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)))
+        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)),
+                                   
+                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                   max_value=date.today()  )
+        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)),
+                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                   max_value=date.today()  )
 
         # Policy Details Section
         st.subheader("Policy Details")
@@ -684,7 +704,8 @@ def policy_renewal_form(defaults=None):
             "VEH_SEATS": to_int(veh_seats),
             "PRODUCT": product,
             "POLICYTYPE": policytype,
-            "TransactionType": "Renewal"
+            "TransactionType": "Renewal",
+            
         }
         
         return form_data, submit, back

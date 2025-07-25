@@ -18,6 +18,8 @@ from toba import toba_tab
 
 # set_custom_theme()
 
+
+
 st.markdown("""
     <style>
             
@@ -28,6 +30,19 @@ st.markdown("""
             padding-bottom: 0rem;
         }
         header {visibility: hidden;}
+            
+
+         /* Smaller headings */
+        h1 {font-size: 1.5rem !important;}
+        h2 {font-size: 1.3rem !important;}
+        h3 {font-size: 1.2rem !important;}
+        h4, h5, h6 {font-size: 1rem !important;}
+        p {font-size: 0.8rem !important;}
+            
+
+        
+
+        
         
         /* Reduce spacing between elements like tabs, heading,table */
         .element-container {
@@ -118,7 +133,7 @@ def main():
     )
     #add an icon with the text "Datasonic" in the top left corner
     # st.title("Policy and Claims Management")
-    tabs = st.tabs(["Submission", "New Submission", "TOBA On-boarding", "Analytics"])
+    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Analytics"])
 
     with tabs[0]:
         submission_tab()

@@ -16,3 +16,4 @@ streamlit-app/utils/__pycache__/*.pyo
 streamlit-app/utils/__pycache__/*.pyd
 streamlit-app/utils/__pycache__/
 >>>>>>> d234247f5652040c06c2e1dcb0580bfb75030fb6
+streamlit-app/.env

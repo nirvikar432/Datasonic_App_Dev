@@ -13,6 +13,11 @@ from insurer_form import (
     insurer_summary_display
 )
 
+from insurer_broker_upload import (
+    load_data_from_json,
+    show_insurer_broker_form
+)
+
 from db_utils import insert_broker, insert_insurer, fetch_data
 
 
@@ -264,11 +269,12 @@ def toba_tab():
         
     elif st.session_state.toba_page == "upload_toba":
         st.subheader("Upload TOBA File")
-        uploaded_file = st.file_uploader("File input", type=["pdf"], key="toba_upload")
-        
-        if st.button("Back to Main"):
-            st.session_state.toba_page = "main"
-            st.rerun()
+        # uploaded_file = st.file_uploader("File input", type=["pdf"], key="toba_upload")
+        load_data_from_json()
+        show_insurer_broker_form()        
+        # if st.button("Back to Main"):
+        #     st.session_state.toba_page = "main"
+        #     st.rerun()
     
 
 

@@ -1,0 +1,13 @@
+{
+  "Type": "New Claim", 
+  "POLICY_NO": "012",
+  "DATE_OF_ACCIDENT": "2024-07-25",
+  "DATE_OF_INTIMATION": "2024-07-25",
+  "PLACE_OF_LOSS": "Mumbai",
+  "CLAIM_TYPE": "OD",
+  "INTIMATED_AMOUNT": 50000.00,
+  "EXECUTIVE": "TanSan Smith",
+  "NATIONALITY": "Indian",
+  "INTIMATED_SF": 10000.00,
+  "ACCOUNT_CODE": "9999"
+}
