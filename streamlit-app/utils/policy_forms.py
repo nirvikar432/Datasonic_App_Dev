@@ -627,28 +627,28 @@ def policy_renewal_form(defaults=None):
         sum_insured = col18.text_input("SUM INSURED", value=str(defaults.get("SUM_INSURED", "")))
 
         # Auto-calculate renewed dates (add 1 year)
-        original_eff_date = defaults.get("POL_EFF_DATE", date.today())
-        original_expiry_date = defaults.get("POL_EXPIRY_DATE", date.today())
-        
+        original_eff_date = defaults.get("POL_EFF_DATE", datetime.today())
+        original_expiry_date = defaults.get("POL_EXPIRY_DATE", datetime.today())
+
         if isinstance(original_eff_date, str):
             try:
                 original_eff_date = datetime.strptime(original_eff_date, "%Y-%m-%d").date()
             except:
-                original_eff_date = date.today()
+                original_eff_date = datetime.today()
         
         if isinstance(original_expiry_date, str):
             try:
                 original_expiry_date = datetime.strptime(original_expiry_date, "%Y-%m-%d").date()
             except:
-                original_expiry_date = date.today()
+                original_expiry_date = datetime.today()
 
         # Calculate new dates (add 1 year)
-        try:
+        if (original_expiry_date > datetime.today()):
             new_eff_date = original_eff_date.replace(year=original_eff_date.year + 1)
             new_expiry_date = original_expiry_date.replace(year=original_expiry_date.year + 1)
-        except:
+        else:
             new_eff_date = date.today()
-            new_expiry_date = date.today()
+            new_expiry_date = new_eff_date.replace(year=new_eff_date.year + 1)
 
         col19, col20, col21 = st.columns(3)
         pol_issue_date = col19.date_input("POLICY ISSUE DATE", value=date.today(), disabled=True)

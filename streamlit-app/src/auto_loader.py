@@ -11,7 +11,6 @@ import random
 # Use absolute import for testing
 from policy_forms import (
     policy_manual_form,
-    policy_summary_display,
     policy_renewal_form,
 )
 
@@ -27,13 +26,13 @@ def fetch_json_data():
     """Fetch JSON data from a file"""
     try:
         #For testing purposes, we can load a sample JSON file
-        json_files = [
-            "streamlit-app/utils/json/NBpolicy.json",
-            "streamlit-app/utils/json/NBclaim.json",
-        ]
-        # with open("streamlit-app/utils/json/NBclaim.json", "r") as f:
-        selected_file = random.choice(json_files)
-        with open(selected_file, "r") as f:
+        # json_files = [
+        #     "streamlit-app/utils/json/NBpolicy.json",
+        #     "streamlit-app/utils/json/NBclaim.json",
+        # ]
+        with open("streamlit-app/utils/json/REpolicy.json", "r") as f:
+        # selected_file = random.choice(json_files)
+        # with open(selected_file, "r") as f:
             data = json.load(f)
             st.write("JSON Data Loaded:", data)
         return data
@@ -49,6 +48,36 @@ def load_policy_from_json():
             return False
         
         policy_type = data.get("Type", "")
+        
+        # For Renewal policies, first fetch the existing policy to get complete data
+        if policy_type == "Renewal":
+            policy_no = data.get("POLICY_NO", "")
+            if policy_no:
+                # Fetch complete policy data from DB
+                try:
+                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Store the original policy data in session state for renewal processing
+                        st.session_state.renewal_policy_data = result[0]
+                        st.session_state.renewal_policy_fetched = True
+                        
+                        # Combine JSON data with existing policy data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "policy_renewal_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Policy {policy_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching policy: {e}")
+                    return False
+            else:
+                st.error("Renewal JSON missing POLICY_NO field")
+                return False
+        
+        # Handle other policy types
         if policy_type == "New Business":
             st.session_state.form_to_show = "policy_manual_form"
             st.session_state.form_defaults = data
@@ -57,10 +86,6 @@ def load_policy_from_json():
             st.session_state.form_to_show = "claim_manual_form"
             st.session_state.form_defaults = data
             return True
-        # elif policy_type == "Renewal":
-        #     st.session_state.form_to_show = "policy_renewal_form"
-        #     st.session_state.form_defaults = data
-        #     return True
         # elif policy_type == "MTA":
         #     st.session_state.form_to_show = "policy_mta_form"
         #     st.session_state.form_defaults = data
@@ -110,110 +135,99 @@ def show_policy_form():
                     del st.session_state.form_defaults
                 st.rerun()
 
+
+        elif st.session_state.form_to_show == "policy_renewal_form":
+            defaults = st.session_state.get("form_defaults", {})
+            form_data, submit_renewal, back_renewal = policy_renewal_form(defaults)
+
+            if submit_renewal:
+                # Collect changed fields as per your logic
+                edit_fields = {}
+                original_policy = st.session_state.renewal_policy_data
+
+                for key, new_value in form_data.items():
+                    if key in original_policy:
+                        original_value = original_policy[key]
+                        # Handle date fields
+                        if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                            if hasattr(original_value, 'date'):
+                                original_date = original_value.date()
+                            elif isinstance(original_value, str):
+                                try:
+                                    if ' ' in original_value:
+                                        original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                                    else:
+                                        original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                                except:
+                                    original_date = original_value
+                            else:
+                                original_date = original_value
+                            if new_value != original_date:
+                                edit_fields[key] = new_value
+                        else:
+                            if str(new_value) != str(original_value):
+                                edit_fields[key] = new_value
+
+                # Always update TransactionType for Renewal
+                # edit_fields["TransactionType"] = "Renewal"
+                # Always update the dates
+                edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
+                edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
+                edit_fields["POL_EXPIRY_DATE"] = form_data["POL_EXPIRY_DATE"]
+
+                if edit_fields:
+                    try:
+                        update_policy(original_policy["POLICY_NO"], edit_fields)
+                        # st.session_state.renewal_updated_data = {**original_policy, **edit_fields}
+                        # st.session_state.renewal_changes = edit_fields
+                        # st.session_state.show_renewal_summary = True
+                        # Clear form state and show success for 5 seconds
+                        st.session_state.policy_edit_page = "main"
+                        st.session_state.submission_mode = None
+                        keys_to_delete = [
+                            "form_to_show", 
+                            "form_defaults", 
+                            "renewal_policy_fetched", 
+                            "renewal_policy_data",
+                            "renewal_updated_data", 
+                            "renewal_changes"
+                        ]
+
+                        for key in keys_to_delete:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                    
+                        st.success("Renewal updated successfully.")
+                        time.sleep(2)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Renewal update failed: {e}")
+                else:
+                    st.info("No fields were modified.")
+
+            if back_renewal:
+                # st.session_state.policy_edit_page = "main"
+                # st.session_state.form_to_show = None
+                # st.session_state.form_defaults = None
+                # st.session_state.renewal_policy_fetched = False
+                # st.session_state.renewal_policy_data = None
+                # st.session_state.show_renewal_summary = False
+                # st.rerun()
+
+                st.session_state.policy_edit_page = "main"
+                st.session_state.submission_mode = None
+                if "form_to_show" in st.session_state:
+                    del st.session_state.form_to_show
+                if "form_defaults" in st.session_state:
+                    del st.session_state.form_defaults
+                st.rerun()
+
         if st.session_state.form_to_show == "claim_manual_form":
             show_claims_form(defaults)
 
         
 
-        # For the ploicy renewal form
-        # elif st.session_state.form_to_show == "policy_renewal_form":
-        #     policy_no = defaults.get("POLICY_NO", "")
-        #     query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
-        #     result = fetch_data(query)
-        #     if result:
-        #         st.session_state.renewal_policy_data = result[0]
-        #         st.session_state.renewal_policy_fetched = True
-        #         st.rerun()
-        #     # Merge DB data with JSON defaults
-        #     policy_data = st.session_state.get("renewal_policy_data", {})
-        #     json_defaults = st.session_state.get("form_defaults", {})
-        #     merged_defaults = policy_data.copy()
-        #     for k, v in json_defaults.items():
-        #         if v not in [None, ""]:
-        #             merged_defaults[k] = v
-        #         # Convert date strings to date objects if needed for the form
-        #     date_fields = ["DRV_DOB", "DRV_DLI", "POL_ISSUE_DATE", "POL_EFF_DATE", "POL_EXPIRY_DATE"]
-        #     for field in date_fields:
-        #         if field in merged_defaults and isinstance(merged_defaults[field], str):
-        #             try:
-        #                 merged_defaults[field] = datetime.strptime(merged_defaults[field], "%Y-%m-%d").date()
-        #             except:
-        #                 merged_defaults[field] = date(2000, 1, 1) if field in ["DRV_DOB", "DRV_DLI"] else date.today()
-
-        #         # Use the merged defaults for the form
-        #     st.markdown("### POLICY RENEWAL FORM")
-        #     st.write("DB policy_data:", policy_data)
-        #     st.write("Merged defaults for form:", merged_defaults)
-        #     form_data, submit_renewal, back_renewal = policy_renewal_form(merged_defaults)
-                
-        #     if submit_renewal:
-        #         # Collect changed fields
-        #         edit_fields = {}
-        #         original_policy = st.session_state.renewal_policy_data
-                
-        #         for key, new_value in form_data.items():
-        #             if key in original_policy:
-        #                 original_value = original_policy[key]
-                        
-        #                 # Special handling for date fields
-        #                 if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
-        #                     # Convert original value to date for comparison
-        #                     if hasattr(original_value, 'date'):
-        #                         original_date = original_value.date()
-        #                     elif isinstance(original_value, str):
-        #                         try:
-        #                             if ' ' in original_value:
-        #                                 original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
-        #                             else:
-        #                                 original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
-        #                         except:
-        #                             original_date = original_value
-        #                     else:
-        #                         original_date = original_value
-                            
-        #                     # Compare dates only
-        #                     if new_value != original_date:
-        #                         edit_fields[key] = new_value
-        #                 else:
-        #                     # Regular comparison for non-date fields
-        #                     if str(new_value) != str(original_value):
-        #                         edit_fields[key] = new_value
-                    
-        #             # Always update TransactionType for Renewal
-        #         edit_fields["TransactionType"] = "Renewal"
-                    
-        #         # For renewal, always update the dates even if they appear the same
-        #         # Force update POL_ISSUE_DATE to current date
-        #         edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
-        #         edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
-        #         edit_fields["POL_EXPIRY_DATE"] = form_data["POL_EXPIRY_DATE"]
-                    
-        #         if edit_fields:
-        #             try:
-        #                 update_policy(original_policy["POLICY_NO"], edit_fields)
-        #                 # Store the updated data and changes for summary
-        #                 st.session_state.renewal_updated_data = {**original_policy, **edit_fields}
-        #                 st.session_state.renewal_changes = edit_fields
-        #                 st.session_state.show_renewal_summary = True
-        #                 st.success("Renewal updated successfully.")
-        #                 time.sleep(2)
-        #                 st.rerun()
-        #             except Exception as e:
-        #                 st.error(f"Renewal update failed: {e}")
-        #         else:
-        #             st.info("No fields were modified.")
-
-        #     if back_renewal:
-        #         st.session_state.renewal_policy_fetched = False
-        #         st.session_state.renewal_policy_data = None
-        #         st.session_state.show_renewal_summary = False
-        #         st.rerun()
         
-        # elif st.session_state.form_to_show == "policy_mta_form":
-        #     st.markdown("### POLICY MTA FORM")
-        #     # Implement MTA form logic here
-        #     # form_data, submit_mta, back_mta = policy_mta_form(defaults)
-        #     # Handle submission and back actions similarly to the renewal form
 
 
 def show_claims_form(defaults):

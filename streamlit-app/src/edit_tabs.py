@@ -25,7 +25,7 @@ from policy_forms import (
 # )
 from db_utils import insert_policy, update_policy, fetch_data, insert_claim, update_claim
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 
 def new_submission_tab():
@@ -497,7 +497,7 @@ def policy_edit_tab():
                                     edit_fields[key] = new_value
                     
                     # Always update TransactionType for Renewal
-                    edit_fields["TransactionType"] = "Renewal"
+                    # edit_fields["TransactionType"] = "Renewal"
                     
                     # For renewal, always update the dates even if they appear the same
                     # Force update POL_ISSUE_DATE to current date
