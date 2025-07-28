@@ -1,0 +1,11 @@
+{
+  "Type": "Claim Update",
+  "CLAIM_NO": "CLM20250723122801",
+  "INTIMATED_AMOUNT": 25000.00,
+  "INTIMATED_SF": 5000.00,
+  "TYPE": "OD",
+  "CLAIM_STATUS": "Under Review",
+  "CLAIM_REMARKS": "Minor accident with damage to front bumper and headlights. Driver reports another vehicle hit them from behind."
+
+ 
+}

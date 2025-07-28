@@ -1,0 +1,17 @@
+{
+  "Type": "MTA",
+  "POLICY_NO": "432",
+  "BODY": "Sedan",
+  "MAKE": "Toyota",
+  "MODEL": "Corolla",
+  "USE_OF_VEHICLE": "Personal",
+  "MODEL_YEAR": 2023,
+  "REGN": "West",
+  "SUM_INSURED": 750000,
+  "PREMIUM2": 25000,
+  "DRV_DOB": "1990-05-12",
+  "DRV_DLI": "2010-06-25",
+  "VEH_SEATS": 5,
+  "PRODUCT": "Comprehensive Motor",
+  "POLICYTYPE": "Motor Private Car"
+}

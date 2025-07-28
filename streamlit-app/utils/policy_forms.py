@@ -644,8 +644,8 @@ def policy_renewal_form(defaults=None):
 
         # Calculate new dates (add 1 year)
         if (original_expiry_date > datetime.today()):
-            new_eff_date = original_eff_date.replace(year=original_eff_date.year + 1)
-            new_expiry_date = original_expiry_date.replace(year=original_expiry_date.year + 1)
+            new_eff_date = original_eff_date.replace(year=original_expiry_date.year + 1)
+            new_expiry_date = original_expiry_date.replace(year=new_eff_date.year + 1)
         else:
             new_eff_date = date.today()
             new_expiry_date = new_eff_date.replace(year=new_eff_date.year + 1)

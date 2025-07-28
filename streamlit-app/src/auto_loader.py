@@ -12,6 +12,9 @@ import random
 from policy_forms import (
     policy_manual_form,
     policy_renewal_form,
+    policy_mta_form,
+    policy_cancel_form,
+
 )
 
 
@@ -29,8 +32,14 @@ def fetch_json_data():
         # json_files = [
         #     "streamlit-app/utils/json/NBpolicy.json",
         #     "streamlit-app/utils/json/NBclaim.json",
+        #     "streamlit-app/utils/json/REpolicy.json",
+        #     "streamlit-app/utils/json/MTApolicy.json",
+        #     "streamlit-app/utils/json/CANpolicy.json",
+        #     "streamlit-app/utils/json/UPDATEclaim.json",
+        #     "streamlit-app/utils/json/CLOclaim.json",
+        #     "streamlit-app/utils/json/Reclaim.json",
         # ]
-        with open("streamlit-app/utils/json/REpolicy.json", "r") as f:
+        with open("streamlit-app/utils/json/Reclaim.json", "r") as f:
         # selected_file = random.choice(json_files)
         # with open(selected_file, "r") as f:
             data = json.load(f)
@@ -78,18 +87,175 @@ def load_policy_from_json():
                 return False
         
         # Handle other policy types
-        if policy_type == "New Business":
+        elif policy_type == "New Business":
             st.session_state.form_to_show = "policy_manual_form"
             st.session_state.form_defaults = data
             return True
-        if policy_type == "New Claim":
+        elif policy_type == "MTA":
+            policy_no = data.get("POLICY_NO", "")
+            if policy_no:
+                # Fetch complete policy data from DB
+                try:
+                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Store the original policy data in session state for MTA processing
+                        st.session_state.mta_policy_data = result[0]
+                        st.session_state.mta_policy_fetched = True
+                        
+                        # Combine JSON data with existing policy data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "policy_mta_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Policy {policy_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching policy: {e}")
+                    return False
+            else:
+                st.error("MTA JSON missing POLICY_NO field")
+                return False
+        elif policy_type == "Policy Cancellation":
+            policy_no = data.get("POLICY_NO", "")
+            if policy_no:
+                # Fetch complete policy data from DB
+                try:
+                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Show already cancelled or Lapsed warning
+                        if result[0].get("isCancelled", 0) == 1:
+                            st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                            return False
+                        elif result[0].get("isLapsed", 0) == 1:
+                            st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
+                            return False
+                            
+                        # Store the original policy data in session state for cancellation processing
+                        st.session_state.cancel_policy_data = result[0]
+                        st.session_state.cancel_policy_fetched = True
+                        
+                        # Combine JSON data with existing policy data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "policy_cancel_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Policy {policy_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching policy: {e}")
+                    return False
+            else:
+                st.error("Cancellation JSON missing POLICY_NO field")
+                return False
+        elif policy_type == "New Claim":
             st.session_state.form_to_show = "claim_manual_form"
             st.session_state.form_defaults = data
             return True
-        # elif policy_type == "MTA":
-        #     st.session_state.form_to_show = "policy_mta_form"
-        #     st.session_state.form_defaults = data
-        #     return True
+        
+        elif policy_type == "Claim Update":
+            claim_no = data.get("CLAIM_NO", "")
+            if claim_no:
+                try:
+                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Check if claim is already closed
+                        if result[0].get("CLAIM_STATUS", "").lower() == "closed":
+                            st.warning(f"Claim {claim_no} is already closed and cannot be updated.", icon="❌")
+                            return False
+                        
+                        # Store the original claim data in session state for update processing
+                        st.session_state.claim_update_data = result[0]
+                        st.session_state.claim_update_fetched = True
+                        
+                        # Combine JSON data with existing claim data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "claim_update_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Claim {claim_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching claim: {e}")
+                    return False
+            else:
+                st.error("Claim Update JSON missing CLAIM_NO field")
+                return False
+        
+        elif policy_type == "Claim Close":
+            claim_no = data.get("CLAIM_NO", "")
+            if claim_no:
+                try:
+                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Check if claim is already closed
+                        if result[0].get("CLAIM_STATUS", "").lower() == "closed":
+                            st.warning(f"Claim {claim_no} is already closed.", icon="❌")
+                            return False
+                        
+                        # Store the original claim data in session state for close processing
+                        st.session_state.claim_close_data = result[0]
+                        st.session_state.claim_close_fetched = True
+                        
+                        # Combine JSON data with existing claim data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "claim_close_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Claim {claim_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching claim: {e}")
+                    return False
+            else:
+                st.error("Claim Close JSON missing CLAIM_NO field")
+                return False
+        
+        elif policy_type == "Claim Reopen":
+            claim_no = data.get("CLAIM_NO", "")
+            if claim_no:
+                try:
+                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    result = fetch_data(query)
+                    if result:
+                        # Check if claim is currently closed (must be closed to reopen)
+                        if result[0].get("CLAIM_STATUS", "").lower() != "closed":
+                            st.warning(f"Claim {claim_no} is not closed and cannot be reopened.", icon="❌")
+                            return False
+                        
+                        # Store the original claim data in session state for reopen processing
+                        st.session_state.claim_reopen_data = result[0]
+                        st.session_state.claim_reopen_fetched = True
+                        
+                        # Add current date to the remarks
+                        current_date = datetime.now().strftime("%Y-%m-%d")
+                        original_remarks = result[0].get("CLAIM_REMARKS", "")
+                        reopen_reason = data.get("REOPEN_REASON", "No reason provided")
+                        new_remarks = f"{original_remarks}\n\nReopened on {current_date}: {reopen_reason}"
+                        data["CLAIM_REMARKS"] = new_remarks
+                        
+                        # Combine JSON data with existing claim data (JSON overrides DB)
+                        combined_data = {**result[0], **data}
+                        st.session_state.form_to_show = "claim_reopen_form"
+                        st.session_state.form_defaults = combined_data
+                        return True
+                    else:
+                        st.warning(f"Claim {claim_no} not found in database.")
+                        return False
+                except Exception as e:
+                    st.error(f"Error fetching claim: {e}")
+                    return False
+            else:
+                st.error("Claim Reopen JSON missing CLAIM_NO field")
+                return False
+            
         else:
             st.error(f"Unknown policy type: {policy_type}")
             return False
@@ -113,8 +279,6 @@ def show_policy_form():
                     form_data["TransactionType"] = "New Business"
                     try:
                         insert_policy(form_data)
-                        # st.session_state.policy_data = form_data
-                        # st.session_state.show_policy_summary = True
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
                         if "form_to_show" in st.session_state:
@@ -168,8 +332,6 @@ def show_policy_form():
                             if str(new_value) != str(original_value):
                                 edit_fields[key] = new_value
 
-                # Always update TransactionType for Renewal
-                # edit_fields["TransactionType"] = "Renewal"
                 # Always update the dates
                 edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
                 edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
@@ -178,10 +340,6 @@ def show_policy_form():
                 if edit_fields:
                     try:
                         update_policy(original_policy["POLICY_NO"], edit_fields)
-                        # st.session_state.renewal_updated_data = {**original_policy, **edit_fields}
-                        # st.session_state.renewal_changes = edit_fields
-                        # st.session_state.show_renewal_summary = True
-                        # Clear form state and show success for 5 seconds
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
                         keys_to_delete = [
@@ -206,14 +364,6 @@ def show_policy_form():
                     st.info("No fields were modified.")
 
             if back_renewal:
-                # st.session_state.policy_edit_page = "main"
-                # st.session_state.form_to_show = None
-                # st.session_state.form_defaults = None
-                # st.session_state.renewal_policy_fetched = False
-                # st.session_state.renewal_policy_data = None
-                # st.session_state.show_renewal_summary = False
-                # st.rerun()
-
                 st.session_state.policy_edit_page = "main"
                 st.session_state.submission_mode = None
                 if "form_to_show" in st.session_state:
@@ -221,14 +371,404 @@ def show_policy_form():
                 if "form_defaults" in st.session_state:
                     del st.session_state.form_defaults
                 st.rerun()
-
-        if st.session_state.form_to_show == "claim_manual_form":
-            show_claims_form(defaults)
-
         
+        elif st.session_state.form_to_show == "policy_mta_form":
+            # st.markdown("### MID-TERM ADJUSTMENT FORM")
+            defaults = st.session_state.get("form_defaults", {})
+            form_data, submit_mta, back_mta = policy_mta_form(defaults)
+            
+            if submit_mta:
+                # Collect changed fields as per your logic
+                edit_fields = {}
+                original_policy = st.session_state.mta_policy_data
 
+                for key, new_value in form_data.items():
+                    if key in original_policy:
+                        original_value = original_policy[key]
+                        # Handle date fields
+                        if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                            if hasattr(original_value, 'date'):
+                                original_date = original_value.date()
+                            elif isinstance(original_value, str):
+                                try:
+                                    if ' ' in original_value:
+                                        original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                                    else:
+                                        original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                                except:
+                                    original_date = original_value
+                            else:
+                                original_date = original_value
+                            if new_value != original_date:
+                                edit_fields[key] = new_value
+                        else:
+                            if str(new_value) != str(original_value):
+                                edit_fields[key] = new_value
+
+
+
+                if edit_fields:
+                    try:
+                        update_policy(original_policy["POLICY_NO"], edit_fields)
+                        st.session_state.policy_edit_page = "main"
+                        st.session_state.submission_mode = None
+                        keys_to_delete = [
+                            "form_to_show", 
+                            "form_defaults", 
+                            "mta_policy_fetched", 
+                            "mta_policy_data"
+                        ]
+
+                        for key in keys_to_delete:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        
+                        st.success("MTA updated successfully.")
+                        time.sleep(2)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"MTA update failed: {e}")
+                else:
+                    st.info("No fields were modified.")
+
+            if back_mta:
+                st.session_state.policy_edit_page = "main"
+                st.session_state.submission_mode = None
+                if "form_to_show" in st.session_state:
+                    del st.session_state.form_to_show
+                if "form_defaults" in st.session_state:
+                    del st.session_state.form_defaults
+                if "mta_policy_fetched" in st.session_state:
+                    del st.session_state.mta_policy_fetched
+                if "mta_policy_data" in st.session_state:
+                    del st.session_state.mta_policy_data
+                st.rerun()
+
+            if st.session_state.form_to_show == "claim_manual_form":
+                show_claims_form(defaults)
         
+        elif st.session_state.form_to_show == "policy_cancel_form":
+            st.markdown("### POLICY CANCELLATION FORM")
+            defaults = st.session_state.get("form_defaults", {})
+            
+            # Display the cancellation form with combined defaults
+            form_data, submit_cancel, back_cancel = policy_cancel_form(defaults)
 
+            if submit_cancel:
+                # Validate cancellation form data
+                if not form_data.get("confirm_cancel", False):
+                    st.warning("Please confirm cancellation by checking the box before submitting.")
+                else:
+                    original_policy = st.session_state.cancel_policy_data
+                    new_premium = form_data["PREMIUM2"]
+                    original_premium = original_policy.get("PREMIUM2", 0)
+                    cancel_date = form_data["CANCELLATION_DATE"]
+                    
+                    # Validate return premium doesn't exceed original premium
+                    if float(new_premium) > float(original_premium):
+                        st.error("Return Premium cannot exceed the original premium.")
+                    else:
+                        try:
+                            # Process the cancellation
+                            negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
+                            update_policy(
+                                original_policy["POLICY_NO"],
+                                {
+                                    "isCancelled": 1,
+                                    "PREMIUM2": int(negative_premium),
+                                    "CANCELLATION_DATE": str(cancel_date),
+                                    "TransactionType": "Policy Cancellation"
+                                }
+                            )
+                            
+                            # Clean up session state and return to main
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.submission_mode = None
+                            keys_to_delete = [
+                                "form_to_show", 
+                                "form_defaults", 
+                                "cancel_policy_fetched", 
+                                "cancel_policy_data",
+                                "cancel_final_confirm"
+                            ]
+
+                            for key in keys_to_delete:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            
+                            st.success(f"Policy {original_policy['POLICY_NO']} cancelled successfully.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Cancellation failed: {e}")
+
+            if back_cancel:
+                st.session_state.policy_edit_page = "main"
+                st.session_state.submission_mode = None
+                if "form_to_show" in st.session_state:
+                    del st.session_state.form_to_show
+                if "form_defaults" in st.session_state:
+                    del st.session_state.form_defaults
+                if "cancel_policy_fetched" in st.session_state:
+                    del st.session_state.cancel_policy_fetched
+                if "cancel_policy_data" in st.session_state:
+                    del st.session_state.cancel_policy_data
+                st.rerun()
+
+        elif st.session_state.form_to_show == "claim_update_form":
+            st.markdown("### CLAIM UPDATE FORM")
+            defaults = st.session_state.get("form_defaults", {})
+            claim_data = st.session_state.claim_update_data
+            
+            with st.form("update_claim_form"):
+                # Editable fields
+                intimated_amount = st.number_input("Intimated Amount", 
+                                                value=float(defaults.get("INTIMATED_AMOUNT", 0)), 
+                                                min_value=0.0, format="%.2f")
+                intimated_sf = st.number_input("Intimated SF", 
+                                            value=float(defaults.get("INTIMATED_SF", 0)), 
+                                            min_value=0.0, format="%.2f")
+                claim_type = st.selectbox("Claim Type", ["OD", "TP"], 
+                                        index=0 if defaults.get("TYPE", "OD") == "OD" else 1)
+                status = st.selectbox("Status", 
+                                    ["Under Review", "Approved", "Rejected", "Pending Documentation"],
+                                    index=["Under Review", "Approved", "Rejected", "Pending Documentation"].index(
+                                        defaults.get("CLAIM_STATUS", "Under Review")))
+                remarks = st.text_area("Remarks", value=defaults.get("CLAIM_REMARKS", ""))
+
+                # Non-editable fields for reference
+                st.markdown("#### Claim Details (Read-only)")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_input("Claim No", value=defaults.get("CLAIM_NO", ""), disabled=True)
+                    st.text_input("Policy No", value=defaults.get("POLICY_NO", ""), disabled=True)
+                    st.text_input("Date of Accident", value=str(defaults.get("DATE_OF_ACCIDENT", "")), disabled=True)
+                with col2:
+                    st.text_input("Place of Loss", value=defaults.get("PLACE_OF_LOSS", ""), disabled=True)
+                    st.text_input("Executive", value=defaults.get("EXECUTIVE", ""), disabled=True)
+                    st.text_input("Vehicle", value=f"{defaults.get('MAKE', '')} {defaults.get('MODEL', '')}", disabled=True)
+
+                submit_update = st.form_submit_button("Update Claim")
+                back_update = st.form_submit_button("Back to Main Menu")
+
+                if submit_update:
+                    try:
+                        update_data = {
+                            "INTIMATED_AMOUNT": intimated_amount,
+                            "INTIMATED_SF": intimated_sf,
+                            "TYPE": claim_type,
+                            "CLAIM_STATUS": status,
+                            "CLAIM_REMARKS": remarks,
+                            "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "CLAIM_STAGE": "Updated"
+                        }
+                        
+                        update_claim(claim_data["CLAIM_NO"], update_data)
+                        st.session_state.policy_edit_page = "main"
+                        st.session_state.submission_mode = None
+                        
+                        # Clean up session state variables
+                        keys_to_delete = [
+                            "form_to_show", 
+                            "form_defaults", 
+                            "claim_update_fetched", 
+                            "claim_update_data"
+                        ]
+
+                        for key in keys_to_delete:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        
+                        st.success("Claim updated successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to update claim: {e}")
+                
+                if back_update:
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.submission_mode = None
+                    
+                    # Clean up session state variables
+                    keys_to_delete = [
+                        "form_to_show", 
+                        "form_defaults", 
+                        "claim_update_fetched", 
+                        "claim_update_data"
+                    ]
+
+                    for key in keys_to_delete:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.rerun()
+
+        elif st.session_state.form_to_show == "claim_close_form":
+            st.markdown("### CLAIM CLOSURE FORM")
+            defaults = st.session_state.get("form_defaults", {})
+            claim_data = st.session_state.claim_close_data
+            
+            with st.form("close_claim_form"):
+                # Closure fields
+                final_settlement = st.number_input("Final Settlement Amount *", 
+                                                value=float(defaults.get("FINAL_SETTLEMENT_AMOUNT", 0)), 
+                                                min_value=0.0, format="%.2f")
+                closure_date = st.date_input("Closure Date *", value=datetime.strptime(defaults.get("CLAIM_CLOSURE_DATE", datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d").date())
+                closure_remarks = st.text_area("Closure Remarks *", value=defaults.get("CLAIM_REMARKS", ""))
+
+                # Display claim summary
+                st.markdown("#### Claim Summary")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_input("Claim No", value=defaults.get("CLAIM_NO", ""), disabled=True)
+                    st.text_input("Policy No", value=defaults.get("POLICY_NO", ""), disabled=True)
+                    st.text_input("Intimated Amount", value=str(defaults.get("INTIMATED_AMOUNT", "")), disabled=True)
+                with col2:
+                    st.text_input("Current Status", value=defaults.get("CLAIM_STATUS", ""), disabled=True)
+                    st.text_input("Claim Type", value=defaults.get("TYPE", ""), disabled=True)
+                    st.text_input("Date of Accident", value=str(defaults.get("DATE_OF_ACCIDENT", "")), disabled=True)
+
+                confirm_closure = st.checkbox("I confirm I want to close this claim")
+                submit_close = st.form_submit_button("Close Claim")
+                back_close = st.form_submit_button("Back to Main Menu")
+
+                if submit_close:
+                    if not confirm_closure:
+                        st.error("Please confirm claim closure by checking the box.")
+                    elif not closure_remarks.strip():
+                        st.error("Please provide closure remarks.")
+                    else:
+                        try:
+                            closure_data = {
+                                "FINAL_SETTLEMENT_AMOUNT": float(final_settlement),
+                                "CLAIM_CLOSURE_DATE": closure_date,
+                                "CLAIM_STATUS": "Closed",
+                                "CLAIM_REMARKS": closure_remarks,
+                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "CLAIM_STAGE": "Closed"
+                            }
+                            
+                            update_claim(claim_data["CLAIM_NO"], closure_data)
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.submission_mode = None
+                            
+                            # Clean up session state variables
+                            keys_to_delete = [
+                                "form_to_show", 
+                                "form_defaults", 
+                                "claim_close_fetched", 
+                                "claim_close_data"
+                            ]
+
+                            for key in keys_to_delete:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            
+                            st.success(f"Claim {claim_data['CLAIM_NO']} closed successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to close claim: {e}")
+                
+                if back_close:
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.submission_mode = None
+                    
+                    # Clean up session state variables
+                    keys_to_delete = [
+                        "form_to_show", 
+                        "form_defaults", 
+                        "claim_close_fetched", 
+                        "claim_close_data"
+                    ]
+
+                    for key in keys_to_delete:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.rerun()
+
+        elif st.session_state.form_to_show == "claim_reopen_form":
+            st.markdown("### CLAIM REOPEN FORM")
+            defaults = st.session_state.get("form_defaults", {})
+            claim_data = st.session_state.claim_reopen_data
+            
+            with st.form("reopen_claim_form"):
+                # Reopen fields
+                reason_for_reopen = st.text_area("Reason for Reopening *", 
+                                                value=defaults.get("REOPEN_REASON", ""))
+                reopen_date = st.date_input("Reopen Date", value=datetime.now())
+                new_status = st.selectbox("New Status", 
+                                        ["Under Review", "Pending Documentation", "Investigation"],
+                                        index=["Under Review", "Pending Documentation", "Investigation"].index(
+                                            defaults.get("CLAIM_STATUS", "Under Review")))
+
+                # Display claim summary
+                st.markdown("#### Closed Claim Summary")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_input("Claim No", value=defaults.get("CLAIM_NO", ""), disabled=True)
+                    st.text_input("Policy No", value=defaults.get("POLICY_NO", ""), disabled=True)
+                    st.text_input("Final Settlement", value=str(defaults.get("FINAL_SETTLEMENT_AMOUNT", "")), disabled=True)
+                with col2:
+                    st.text_input("Closure Date", value=str(defaults.get("CLAIM_CLOSURE_DATE", "")), disabled=True)
+                    st.text_input("Claim Type", value=defaults.get("TYPE", ""), disabled=True)
+                    st.text_input("Executive", value=defaults.get("EXECUTIVE", ""), disabled=True)
+
+                confirm_reopen = st.checkbox("I confirm I want to reopen this claim")
+                submit_reopen = st.form_submit_button("Reopen Claim")
+                back_reopen = st.form_submit_button("Back to Main Menu")
+
+                if submit_reopen:
+                    if not confirm_reopen:
+                        st.error("Please confirm claim reopening by checking the box.")
+                    elif not reason_for_reopen.strip():
+                        st.error("Please provide reason for reopening.")
+                    else:
+                        try:
+                            reopen_data = {
+                                "CLAIM_STATUS": new_status,
+                                "CLAIM_STAGE": "Reopened",
+                                "REOPEN_REASON": reason_for_reopen,
+                                "CLAIM_REMARKS": defaults.get("CLAIM_REMARKS", ""),  # Already formatted with date and reason
+                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            
+                            update_claim(claim_data["CLAIM_NO"], reopen_data)
+                            st.session_state.policy_edit_page = "main"
+                            st.session_state.submission_mode = None
+                            
+                            # Clean up session state variables
+                            keys_to_delete = [
+                                "form_to_show", 
+                                "form_defaults", 
+                                "claim_reopen_fetched", 
+                                "claim_reopen_data"
+                            ]
+
+                            for key in keys_to_delete:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            
+                            st.success(f"Claim {claim_data['CLAIM_NO']} reopened successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to reopen claim: {e}")
+                
+                if back_reopen:
+                    st.session_state.policy_edit_page = "main"
+                    st.session_state.submission_mode = None
+                    
+                    # Clean up session state variables
+                    keys_to_delete = [
+                        "form_to_show", 
+                        "form_defaults", 
+                        "claim_reopen_fetched", 
+                        "claim_reopen_data"
+                    ]
+
+                    for key in keys_to_delete:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.rerun()
 
 def show_claims_form(defaults):
     st.markdown("### NEW CLAIM FORM")

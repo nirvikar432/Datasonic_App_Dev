@@ -345,7 +345,7 @@ def policy_edit_tab():
                                     edit_fields[key] = new_value
                     
                     # Always update TransactionType for MTA
-                    edit_fields["TransactionType"] = "MTA"
+                    # edit_fields["TransactionType"] = "MTA"
                     
                     # Remove TransactionType from edit_fields if no other changes were made
                     if len(edit_fields) == 1 and "TransactionType" in edit_fields:
