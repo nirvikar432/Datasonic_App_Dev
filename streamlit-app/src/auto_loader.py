@@ -17,7 +17,6 @@ from policy_forms import (
 
 )
 
-
 from db_utils import insert_policy, update_policy, fetch_data, insert_claim, update_claim
 
 
@@ -30,16 +29,16 @@ def fetch_json_data():
     try:
         #For testing purposes, we can load a sample JSON file
         # json_files = [
-        #     "streamlit-app/utils/json/NBpolicy.json",
-        #     "streamlit-app/utils/json/NBclaim.json",
-        #     "streamlit-app/utils/json/REpolicy.json",
-        #     "streamlit-app/utils/json/MTApolicy.json",
-        #     "streamlit-app/utils/json/CANpolicy.json",
-        #     "streamlit-app/utils/json/UPDATEclaim.json",
-        #     "streamlit-app/utils/json/CLOclaim.json",
-        #     "streamlit-app/utils/json/Reclaim.json",
+        #     "streamlit-app/utils/json/POLICY_NB.json",
+        #     "streamlit-app/utils/json/POLICY_MTA.json",
+        #     "streamlit-app/utils/json/POLICY_Renewal.json",
+        #     "streamlit-app/utils/json/POLICY_Cancel.json",
+        #     "streamlit-app/utils/json/CLAIM_CLO.json",
+        #     "streamlit-app/utils/json/CLAIM_Reopen.json",
+        #     "streamlit-app/utils/json/CLAIM_NB.json",
+        #     "streamlit-app/utils/json/CLAIM_Update.json",
         # ]
-        with open("streamlit-app/utils/json/Reclaim.json", "r") as f:
+        with open("streamlit-app/utils/json/POLICY_NB.json", "r") as f:
         # selected_file = random.choice(json_files)
         # with open(selected_file, "r") as f:
             data = json.load(f)
@@ -444,7 +443,7 @@ def show_policy_form():
                     del st.session_state.mta_policy_data
                 st.rerun()
 
-            if st.session_state.form_to_show == "claim_manual_form":
+        elif st.session_state.form_to_show == "claim_manual_form":
                 show_claims_form(defaults)
         
         elif st.session_state.form_to_show == "policy_cancel_form":

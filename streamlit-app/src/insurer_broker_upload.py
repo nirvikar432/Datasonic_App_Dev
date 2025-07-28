@@ -24,12 +24,12 @@ def fetch_json_data():
     try:
         #For Testing purposes, we can use a static file path
         json_files = [
-            "streamlit-app/utils/json/broker.json",
-            "streamlit-app/utils/json/insurer.json"
+            "streamlit-app/utils/json/TOBA_Broker.json",
+            "streamlit-app/utils/json/TOBA_Insurer.json"
         ]
         selected_file = random.choice(json_files)
 
-        # with open("streamlit-app/utils/json/insurer.json", "r") as f:
+        # with open("streamlit-app/utils/json/TOBA_Insurer.json", "r") as f:
         with open(selected_file, "r") as f:
             data = json.load(f)
             st.write("JSON Data Loaded:", data)
