@@ -36,13 +36,8 @@ def upload_document():
     
     # Document upload form
     with st.form("document_upload_form"):
-        # col1, col2 = st.columns(2)
-        # with col1:
-        #     policy_number = st.text_input("Policy Number *")
-        # with col2:
-        #     chassis_number = st.text_input("Chassis Number *")
-              
-        uploaded_file = st.file_uploader("Upload File *", type=["pdf", "docx"])
+        
+        uploaded_file = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"])
         
         submit = st.form_submit_button("Upload Document")
         back = st.form_submit_button("Back")
@@ -50,8 +45,6 @@ def upload_document():
         if submit:
             if not uploaded_file:
                 st.error("Please upload a file.")
-            # elif not policy_number or not chassis_number:
-            #     st.error("Policy Number and Chassis Number are required.")
             else:
                 try:
                     with st.spinner("Uploading document..."):
@@ -64,13 +57,10 @@ def upload_document():
                         guid = str(uuid.uuid4())
                         file_hash = compute_file_hash(file_path)
                         file_extension = os.path.splitext(uploaded_file.name)[-1]
-                        # new_filename = f"{policy_number}_{chassis_number}{file_extension}"
                         
                         # Upload to Azure Blob Storage
                         metadata = {
                             "guid": guid,
-                            # "policy": policy_number,
-                            # "chassis": chassis_number,
                             "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         
@@ -87,15 +77,12 @@ def upload_document():
                         # result = extract_info(uploaded_file.getvalue())
                         
                         # Insert record into database (you'll need to implement this)
-                        # insert_document_record(
-                        #     file_hash=file_hash,
-                        #     guid=guid,
-                        #     blob_url=blob_url,
-                        #     policy_number=policy_number,
-                        #     chassis_number=chassis_number,
-                        #     document_type=document_type,
-                        #     description=description
-                        # )
+                    #     insert_document_record(
+                    #         file_hash=file_hash,
+                    #         guid=guid,
+                    #         blob_url=blob_url,
+                    #         document_type=document_type
+                    # )
                         
                         # Show success message
                         st.success("Document uploaded successfully!")
@@ -104,8 +91,6 @@ def upload_document():
                         st.subheader("Document Details")
                         col1, col2 = st.columns(2)
                         with col1:
-                            # st.write(f"**Policy Number:** {policy_number}")
-                            # st.write(f"**Chassis Number:** {chassis_number}")
                             st.write(f"**File Name:** {uploaded_file.name}")
                         with col2:
                             st.write(f"**Upload Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

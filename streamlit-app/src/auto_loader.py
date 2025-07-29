@@ -33,12 +33,12 @@ def fetch_json_data():
         #     "streamlit-app/utils/json/POLICY_MTA.json",
         #     "streamlit-app/utils/json/POLICY_Renewal.json",
         #     "streamlit-app/utils/json/POLICY_Cancel.json",
-        #     "streamlit-app/utils/json/CLAIM_CLO.json",
+        #     "streamlit-app/utils/json/CLAIM_Close.json",
         #     "streamlit-app/utils/json/CLAIM_Reopen.json",
         #     "streamlit-app/utils/json/CLAIM_NB.json",
         #     "streamlit-app/utils/json/CLAIM_Update.json",
         # ]
-        with open("streamlit-app/utils/json/POLICY_NB.json", "r") as f:
+        with open("streamlit-app/utils/json/CLAIM_Close.json", "r") as f:
         # selected_file = random.choice(json_files)
         # with open(selected_file, "r") as f:
             data = json.load(f)
