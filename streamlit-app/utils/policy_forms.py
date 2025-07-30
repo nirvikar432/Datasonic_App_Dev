@@ -465,7 +465,8 @@ def policy_mta_form(defaults=None):
         st.subheader("Policy Details")
         col16, col17, col18 = st.columns(3)
         policy_no = col16.text_input("POLICY NO", value=defaults.get("POLICY_NO", ""), disabled=True)
-        policytype = col17.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
+        # policytype = col17.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
+        policytype = col17.selectbox("POLICY TYPE", options=["TP", "COMP"], index=0)
         sum_insured = col18.text_input("SUM INSURED", value=str(defaults.get("SUM_INSURED", "")), disabled=False)
 
         col19, col20, col21 = st.columns(3)

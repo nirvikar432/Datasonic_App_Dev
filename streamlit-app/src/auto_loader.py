@@ -23,6 +23,24 @@ from db_utils import insert_policy, update_policy, fetch_data, insert_claim, upd
 # Ensure the parent directory is in sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+
+# Define field templates for each transaction type
+POLICY_NB_FIELDS = ['CUST_ID', 'EXECUTIVE', 'Broker_Name', 'Facility_Name', 'BODY', 'MAKE', 'MODEL', 'USE_OF_VEHICLE', 'MODEL_YEAR', 'CHASSIS_NO', 'REGN', 'POLICY_NO', 'POL_EFF_DATE', 'POL_EXPIRY_DATE', 'SUM_INSURED', 'POL_ISSUE_DATE', 'PREMIUM2', 'DRV_DOB', 'DRV_DLI', 'VEH_SEATS', 'PRODUCT', 'POLICYTYPE', 'NATIONALITY']
+
+POLICY_RENEWAL_FIELDS = ['EXECUTIVE', 'BODY', 'MAKE', 'MODEL', 'USE_OF_VEHICLE', 'MODEL_YEAR', 'REGN', 'SUM_INSURED', 'PREMIUM2', 'DRV_DOB', 'DRV_DLI', 'VEH_SEATS', 'PRODUCT', 'POLICYTYPE', 'NATIONALITY']
+
+POLICY_MTA_FIELDS = ['BODY', 'MAKE', 'MODEL', 'USE_OF_VEHICLE', 'MODEL_YEAR', 'REGN', 'SUM_INSURED', 'PREMIUM2', 'DRV_DOB', 'DRV_DLI', 'VEH_SEATS', 'PRODUCT', 'POLICYTYPE']
+
+POLICY_CANCEL_FIELDS = ['cancel_date', 'premium2']
+
+CLAIM_UPDATE_FIELDS = ['INTIMATED_AMOUNT', 'INTIMATED_SF', 'TYPE', 'CLAIM_STATUS', 'CLAIM_REMARKS']
+
+CLAIM_CLOSE_FIELDS = ['FINAL_SETTLEMENT_AMOUNT', 'CLAIM_CLOSURE_DATE', 'CLAIM_STATUS', 'CLAIM_REMARKS']
+
+CLAIM_REOPEN_FIELDS = ['CLAIM_STATUS', 'REOPEN_REASON']
+
+CLAIMS_NB_FIELDS = ['POLICY_NO', 'DATE_OF_ACCIDENT', 'DATE_OF_INTIMATION', 'PLACE_OF_LOSS', 'CLAIM_TYPE', 'INTIMATED_AMOUNT', 'EXECUTIVE', 'NATIONALITY', 'INTIMATED_SF', 'ACCOUNT_CODE']
+
 # Fetch json data from json.json file
 def fetch_json_data():
     """Fetch JSON data from a file"""
@@ -38,7 +56,7 @@ def fetch_json_data():
         #     "streamlit-app/utils/json/CLAIM_NB.json",
         #     "streamlit-app/utils/json/CLAIM_Update.json",
         # ]
-        with open("streamlit-app/utils/json/CLAIM_Close.json", "r") as f:
+        with open("streamlit-app/utils/json/POLICY_NB1.json", "r") as f:
         # selected_file = random.choice(json_files)
         # with open(selected_file, "r") as f:
             data = json.load(f)
@@ -71,7 +89,12 @@ def load_policy_from_json():
                         st.session_state.renewal_policy_fetched = True
                         
                         # Combine JSON data with existing policy data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in POLICY_RENEWAL_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+
                         st.session_state.form_to_show = "policy_renewal_form"
                         st.session_state.form_defaults = combined_data
                         return True
@@ -103,7 +126,12 @@ def load_policy_from_json():
                         st.session_state.mta_policy_fetched = True
                         
                         # Combine JSON data with existing policy data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in POLICY_MTA_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+
                         st.session_state.form_to_show = "policy_mta_form"
                         st.session_state.form_defaults = combined_data
                         return True
@@ -137,7 +165,12 @@ def load_policy_from_json():
                         st.session_state.cancel_policy_fetched = True
                         
                         # Combine JSON data with existing policy data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in POLICY_CANCEL_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+
                         st.session_state.form_to_show = "policy_cancel_form"
                         st.session_state.form_defaults = combined_data
                         return True
@@ -172,7 +205,12 @@ def load_policy_from_json():
                         st.session_state.claim_update_fetched = True
                         
                         # Combine JSON data with existing claim data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in CLAIM_UPDATE_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+
                         st.session_state.form_to_show = "claim_update_form"
                         st.session_state.form_defaults = combined_data
                         return True
@@ -203,7 +241,12 @@ def load_policy_from_json():
                         st.session_state.claim_close_fetched = True
                         
                         # Combine JSON data with existing claim data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in CLAIM_CLOSE_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+
                         st.session_state.form_to_show = "claim_close_form"
                         st.session_state.form_defaults = combined_data
                         return True
@@ -241,7 +284,12 @@ def load_policy_from_json():
                         data["CLAIM_REMARKS"] = new_remarks
                         
                         # Combine JSON data with existing claim data (JSON overrides DB)
-                        combined_data = {**result[0], **data}
+                        # combined_data = {**result[0], **data}
+                        combined_data = result[0].copy()
+                        for field in CLAIM_REOPEN_FIELDS:
+                            if field in data:
+                                combined_data[field] = data[field]
+                                
                         st.session_state.form_to_show = "claim_reopen_form"
                         st.session_state.form_defaults = combined_data
                         return True

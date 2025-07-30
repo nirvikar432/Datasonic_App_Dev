@@ -592,24 +592,60 @@ def claims_edit_tab():
                 st.session_state.claim_no = f"CLM{timestamp}"
 
             with st.form("new_claim_form"):
-                col1, col2 = st.columns(2)
+                # col1, col2 = st.columns(2)
                 
-                with col1:
-                    policy_no = st.text_input("Policy No *", key="new_claim_policy_no")
-                    date_of_accident = st.date_input("Date of Accident *", value=date.today())
-                    date_of_intimation = st.date_input("Date of Intimation *", value=date.today())
-                    place_of_loss = st.text_input("Place of Loss *")
-                    claim_type = st.selectbox("Claim Type *", ["OD", "TP"])
-                    intimated_amount = st.number_input("Intimated Amount *", min_value=0.0, format="%.2f")
+                # with col1:
+                #     policy_no = st.text_input("Policy No *", key="new_claim_policy_no")
+                #     date_of_accident = st.date_input("Date of Accident *", value=date.today())
+                #     date_of_intimation = st.date_input("Date of Intimation *", value=date.today())
+                #     place_of_loss = st.text_input("Place of Loss *")
+                #     intimated_amount = st.number_input("Intimated Amount *", min_value=0.0, format="%.2f")
+                #     intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
+
                     
                                         
                 
-                with col2:
-                    executive = st.text_input("Executive *")
-                    nationality = st.text_input("Nationality")
-                    claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True)
-                    intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
-                    account_code_value = st.text_input("Account Code", value="")  # Replace with actual value if needed
+                # with col2:
+                #     executive = st.text_input("Executive *")
+                #     nationality = st.text_input("Nationality")
+                #     claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True)
+                #     account_code_value = st.text_input("Account Code", value="")  # Replace with actual value if needed
+                #     claim_type = st.selectbox("Claim Type *", ["OD", "TP"])
+
+
+
+
+                # --- Policy Details ---
+                with st.expander("Policy Details", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        policy_no = st.text_input("Policy No *", key="new_claim_policy_no")
+                        date_of_accident = st.date_input("Date of Accident *", value=date.today())
+                        date_of_intimation = st.date_input("Date of Intimation *", value=date.today())
+                        place_of_loss = st.text_input("Place of Loss *")
+                    
+                    with col2:
+                        claim_type = st.selectbox("Claim Type *", ["OD", "TP"])
+                        claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True)
+                        account_code_value = st.text_input("Account Code", value="")
+
+                # --- Claim Amounts ---
+                with st.expander("Claim Amounts", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        intimated_amount = st.number_input("Intimated Amount *", min_value=0.0, format="%.2f")
+                    with col2:
+                        intimated_sf = st.number_input("Intimated SF", min_value=0.0, format="%.2f")
+
+                # --- Other Information ---
+                with st.expander("Other Information", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        executive = st.text_input("Executive *")
+                    with col2:
+                        nationality = st.text_input("Nationality")
+
+
 
                 submit = st.form_submit_button("Submit New Claim")
                 back = st.form_submit_button("Back")
