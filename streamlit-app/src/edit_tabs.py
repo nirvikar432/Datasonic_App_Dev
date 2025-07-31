@@ -75,9 +75,7 @@ def new_submission_tab():
     elif st.session_state.submission_mode == "claims":
         claims_edit_tab()
     elif st.session_state.submission_mode == "upload":
-        # upload_document()
         load_policy_from_json()
-    # if hasattr(st.session_state, "form_to_show") and st.session_state.form_to_show:
         show_policy_form()
         
 

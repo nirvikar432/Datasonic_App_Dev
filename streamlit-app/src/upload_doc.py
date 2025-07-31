@@ -10,6 +10,8 @@ dotenv.load_dotenv(Path(__file__).parent.parent / ".env")
 
 AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
+API_KEY = os.getenv("API_KEY")
+API_CODE = os.getenv("API_CODE")
 
 
 def compute_file_hash(file_path):
@@ -37,7 +39,7 @@ def upload_document():
     # Document upload form
     with st.form("document_upload_form"):
         
-        uploaded_file = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"])
+        uploaded_file = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
         
         submit = st.form_submit_button("Upload Document")
         back = st.form_submit_button("Back")

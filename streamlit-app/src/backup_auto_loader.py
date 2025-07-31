@@ -38,36 +38,6 @@ API_CODE = os.getenv("API_CODE")
 # Ensure the parent directory is in sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
-
-# Add this helper function at the top of your file after imports
-def clear_session_state():
-    """Clear all form-related session state variables"""
-    keys_to_delete = [
-        # Form controls
-        "form_to_show", "form_defaults", "submission_mode", "json_data", 
-        
-        # Policy specific keys
-        "renewal_policy_data", "renewal_policy_fetched", "renewal_updated_data", 
-        "mta_policy_data", "mta_policy_fetched", "cancel_policy_data", 
-        "cancel_policy_fetched", "cancel_final_confirm",
-        
-        # Claim specific keys  
-        "claim_update_data", "claim_update_fetched", "claim_close_data", 
-        "claim_close_fetched", "claim_reopen_data", "claim_reopen_fetched",
-        "claim_no"
-    ]
-    
-    for key in keys_to_delete:
-        if key in st.session_state:
-            del st.session_state[key]
-            
-    # Hard reset for page state
-    st.session_state.policy_edit_page = "main"
-    
-    # Force browser cache refresh with timestamp
-    st.session_state.last_reset = datetime.now().timestamp()
-
 def compute_file_hash(file_path):
     """Compute SHA-256 hash of file"""
     hasher = hashlib.sha256()
@@ -112,46 +82,11 @@ def process_document_with_api(file_path, file_name):
     except Exception as e:
         raise Exception(f"Error processing document with API: {e}")
 
-def process_multiple_documents_with_api(file_paths, file_names):
-    """Send multiple documents to API for processing and return the extracted JSON data"""
-    try:
-        # Prepare the files and data for the API request
-        files = {}
-        
-        # Add each file to the files dictionary with a different key
-        for i, (file_path, file_name) in enumerate(zip(file_paths, file_names)):
-            with open(file_path, 'rb') as f:
-                # Create a unique key for each file (file1, file2, etc.)
-                files[f'file{i+1}'] = (file_name, f.read(), 'application/octet-stream')
-        
-        params = {
-            'code': API_CODE
-        }
-        
-        # Make the API request
-        response = requests.post(API_URL, files=files, params=params)
-        
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"API Error: {response.status_code} - {response.text}")
-            
-    except Exception as e:
-        raise Exception(f"Error processing documents with API: {e}")
+
+
 
 def upload_document():
     st.header("Document Upload")
-
-    # Check if there was a successful submission
-    if "form_submitted" in st.session_state and st.session_state.form_submitted:
-        # Clear the flag and all related data
-        st.session_state.form_submitted = False
-        if "json_data" in st.session_state:
-            del st.session_state.json_data
-        st.success("Form submitted successfully!")
-        st.rerun()
-
     with st.form("document_upload_form"):
         uploaded_files = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
         submit = st.form_submit_button("Upload Document")
@@ -161,76 +96,59 @@ def upload_document():
             if not uploaded_files or len(uploaded_files) == 0:
                 st.error("Please upload a file.")
             else:
+                # Process the first file in the list
+                # uploaded_file = uploaded_files
                 try:
-                    with st.spinner("Uploading documents..."):
-                        # Create temp files for all uploaded files
-                        temp_file_paths = []
-                        file_names = []
-                        file_hashes = []
-                        guids = []
+                    with st.spinner("Uploading document..."):
+                        # Save uploaded file to temp location
+                        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                            temp_file.write(uploaded_file.read())
+                            file_path = temp_file.name
                         
-                        # Process each file in the list
-                        for uploaded_file in uploaded_files:
-                            # Save uploaded file to temp location
-                            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                                temp_file.write(uploaded_file.read())
-                                temp_file_paths.append(temp_file.name)
-                            
-                            # Generate unique identifier for each file
-                            guid = str(uuid.uuid4())
-                            guids.append(guid)
-                            file_hash = compute_file_hash(temp_file_paths[-1])
-                            file_hashes.append(file_hash)
-                            file_names.append(uploaded_file.name)
-                            
-                            # Upload to Azure Blob Storage
-                            metadata = {
-                                "guid": guid,
-                                "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
-                            
-                            blob_url = upload_to_blob(
-                                file_path=temp_file_paths[-1],
-                                blob_name=uploaded_file.name,
-                                metadata=metadata
-                            )
+                        # Generate unique identifiers
+                        guid = str(uuid.uuid4())
+                        file_hash = compute_file_hash(file_path)
                         
-                        # Process all files with API together
+                        # Upload to Azure Blob Storage
+                        metadata = {
+                            "guid": guid,
+                            "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        
+                        blob_url = upload_to_blob(
+                            file_path=file_path,
+                            blob_name=uploaded_file.name,
+                            metadata=metadata
+                        )
+
+                        ###
                         st.session_state.json_data = None
-                        with st.spinner("Extracting data from documents..."):
-                            # Modify process_document_with_api to handle multiple files
-                            json_data = process_multiple_documents_with_api(
-                                file_paths=temp_file_paths,
-                                file_names=file_names
+                        with st.spinner("Extracting data from document..."):
+                            json_data = process_document_with_api(
+                                file_path=file_path,
+                                file_name=uploaded_file.name,
                             )
-                            
                             # Store in session state
                             st.session_state.json_data = json_data
+
                         
-                        # Clean up temp files
-                        for file_path in temp_file_paths:
-                            os.remove(file_path)
-                        
-                        st.success(f"{len(uploaded_files)} document(s) uploaded successfully!")
+                        os.remove(file_path)
+                        st.success("Document uploaded successfully!")
                         
                         # Display document details
-                        st.subheader("Documents Uploaded")
-                        for i, (name, hash_value, guid) in enumerate(zip(file_names, file_hashes, guids)):
-                            st.markdown(f"**Document {i+1}:**")
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.write(f"**File Name:** {name}")
-                                st.write(f"**Upload Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                            with col2:
-                                st.write(f"**Document ID:** {guid}")
-                                st.write(f"**File Hash:** {hash_value[:10]}...")
+                        st.subheader("Document Details")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**File Name:** {uploaded_file.name}")
+                            st.write(f"**Upload Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                        with col2:
+                            st.write(f"**Document ID:** {guid}")
+                            st.write(f"**File Hash:** {file_hash[:10]}...")
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
         
         if back:
             st.session_state.submission_mode = None
-            if "json_data" in st.session_state:
-                del st.session_state.json_data
             st.rerun()
     return st.session_state.json_data if 'json_data' in st.session_state else None
 
@@ -256,119 +174,60 @@ CLAIMS_NB_FIELDS = ['POLICY_NO', 'DATE_OF_ACCIDENT', 'DATE_OF_INTIMATION', 'PLAC
 def fetch_json_data():
     """Fetch JSON data from a file"""
     try:
-        data = upload_document()
+            data = upload_document()
 
-        # Check if json_data is None or not valid
-        if data is None:
-            st.warning("Upload document.")
-            return None
+            # Check if json_data is None or not valid
+            if data is None:
+                st.error("No document was uploaded or processed.")
+                return None
+            # data = json.load(json_data)
 
-        # Handle the new JSON structure that contains files_processed
-        if "files_processed" in data:
-            st.success(f"Processed {len(data['files_processed'])} files: {', '.join(data['files_processed'])}")
-            
-            # Extract classification
-            classification = data.get("classification", {})
-            subcategory = classification.get("subcategory", "")
-            category = classification.get("category", "")
-            
-            # Extract the fields
-            extracted_fields = data.get("extracted_fields", {})
-            
-            # Clean up numeric fields that might have formatting
-            if "SUM_INSURED" in extracted_fields and extracted_fields["SUM_INSURED"]:
-                # Remove non-numeric characters like "AED" and commas
-                sum_insured = extracted_fields["SUM_INSURED"]
-                if isinstance(sum_insured, str):
-                    sum_insured = ''.join(c for c in sum_insured if c.isdigit() or c == '.')
-                    try:
-                        extracted_fields["SUM_INSURED"] = float(sum_insured)
-                    except ValueError:
-                        pass
+            if "results" in data and isinstance(data["results"], list) and len(data["results"]) > 0:
+                # Extract document classification
+                classification = data["results"][0].get("classification", {})
+                subcategory = classification.get("subcategory", "")
+                # category = classification.get("category", "")
 
-            if "INTIMATED_AMOUNT" in extracted_fields and extracted_fields["INTIMATED_AMOUNT"]:
-                # Remove non-numeric characters like commas
-                intimated_amount = extracted_fields["INTIMATED_AMOUNT"]
-                if isinstance(intimated_amount, str):
-                    intimated_amount = ''.join(c for c in intimated_amount if c.isdigit() or c == '.')
-                    try:
-                        extracted_fields["INTIMATED_AMOUNT"] = float(intimated_amount)
-                    except ValueError:
-                        pass
+                # Extract just the fields
+                extracted_fields = data["results"][0].get("extracted_fields", {})
 
-            if "PREMIUM2" in extracted_fields and extracted_fields["PREMIUM2"]:
-                # Remove non-numeric characters like "AED" and commas
-                premium = extracted_fields["PREMIUM2"]
-                if isinstance(premium, str):
-                    premium = ''.join(c for c in premium if c.isdigit() or c == '.')
-                    try:
-                        extracted_fields["PREMIUM2"] = float(premium)
-                    except ValueError:
-                        pass
+                # Clean up numeric fields that might have formatting
+                if "SUM_INSURED" in extracted_fields and extracted_fields["SUM_INSURED"]:
+                    # Remove non-numeric characters like "AED" and commas
+                    sum_insured = extracted_fields["SUM_INSURED"]
+                    if isinstance(sum_insured, str):
+                        sum_insured = ''.join(c for c in sum_insured if c.isdigit() or c == '.')
+                        try:
+                            extracted_fields["SUM_INSURED"] = float(sum_insured)
+                        except ValueError:
+                            pass
 
-            # Convert other numeric fields
-            for field in ["MODEL_YEAR", "VEH_SEATS", "CUST_ID"]:
-                if field in extracted_fields and extracted_fields[field]:
-                    try:
-                        extracted_fields[field] = int(extracted_fields[field])
-                    except ValueError:
-                        pass
-                        
-            normalized_data = {
-                "Type": subcategory if subcategory else category,
-                **extracted_fields  # Add all extracted fields directly
-            }
-            
-            st.write("Extracted JSON Data:", normalized_data)
-            return normalized_data
-            
-        # Fall back to the old format for backward compatibility
-        elif "results" in data and isinstance(data["results"], list) and len(data["results"]) > 0:
-            # Extract document classification
-            classification = data["results"][0].get("classification", {})
-            subcategory = classification.get("subcategory", "")
-            # category = classification.get("category", "")
+                if "PREMIUM2" in extracted_fields and extracted_fields["PREMIUM2"]:
+                    # Remove non-numeric characters like "AED" and commas
+                    premium = extracted_fields["PREMIUM2"]
+                    if isinstance(premium, str):
+                        premium = ''.join(c for c in premium if c.isdigit() or c == '.')
+                        try:
+                            extracted_fields["PREMIUM2"] = float(premium)
+                        except ValueError:
+                            pass
 
-            # Extract just the fields
-            extracted_fields = data["results"][0].get("extracted_fields", {})
-
-            # Clean up numeric fields that might have formatting
-            if "SUM_INSURED" in extracted_fields and extracted_fields["SUM_INSURED"]:
-                # Remove non-numeric characters like "AED" and commas
-                sum_insured = extracted_fields["SUM_INSURED"]
-                if isinstance(sum_insured, str):
-                    sum_insured = ''.join(c for c in sum_insured if c.isdigit() or c == '.')
-                    try:
-                        extracted_fields["SUM_INSURED"] = float(sum_insured)
-                    except ValueError:
-                        pass
-
-            if "PREMIUM2" in extracted_fields and extracted_fields["PREMIUM2"]:
-                # Remove non-numeric characters like "AED" and commas
-                premium = extracted_fields["PREMIUM2"]
-                if isinstance(premium, str):
-                    premium = ''.join(c for c in premium if c.isdigit() or c == '.')
-                    try:
-                        extracted_fields["PREMIUM2"] = float(premium)
-                    except ValueError:
-                        pass
-
-            # Convert other numeric fields
-            for field in ["MODEL_YEAR", "VEH_SEATS", "CUST_ID"]:
-                if field in extracted_fields and extracted_fields[field]:
-                    try:
-                        extracted_fields[field] = int(extracted_fields[field])
-                    except ValueError:
-                        pass
+                # Convert other numeric fields
+                for field in ["MODEL_YEAR", "VEH_SEATS", "CUST_ID"]:
+                    if field in extracted_fields and extracted_fields[field]:
+                        try:
+                            extracted_fields[field] = int(extracted_fields[field])
+                        except ValueError:
+                            pass
                 normalized_data = {
                     "Type": subcategory if subcategory else "New Business",
                     **extracted_fields  # Add all extracted fields directly
                 }
                 st.write("Extracted JSON Data:", normalized_data)
                 return normalized_data
-        else:
-            st.write("JSON Data Loaded:", data)
-            return data
+            else:
+                st.write("JSON Data Loaded:", data)
+                return data
     except Exception as e:
         st.error(f"Error loading JSON data: {e}")
         return None
@@ -503,9 +362,7 @@ def load_policy_from_json():
                     result = fetch_data(query)
                     if result:
                         # Check if claim is already closed
-                        claim_status = result[0].get("CLAIM_STATUS", "")
-                        # Fix: Check if claim_status is None before calling lower()
-                        if claim_status and claim_status.lower() == "closed":
+                        if result[0].get("CLAIM_STATUS", "").lower() == "closed":
                             st.warning(f"Claim {claim_no} is already closed and cannot be updated.", icon="❌")
                             return False
                         
@@ -533,7 +390,7 @@ def load_policy_from_json():
                 st.error("Claim Update JSON missing CLAIM_NO field")
                 return False
         
-        elif policy_type == "Claim Closure":
+        elif policy_type == "Claim Close":
             claim_no = data.get("CLAIM_NO", "")
             if claim_no:
                 try:
@@ -541,9 +398,7 @@ def load_policy_from_json():
                     result = fetch_data(query)
                     if result:
                         # Check if claim is already closed
-                        claim_status = result[0].get("CLAIM_STATUS", "")
-                        # Fix: Check if claim_status is None before calling lower()
-                        if claim_status and claim_status.lower() == "closed":
+                        if result[0].get("CLAIM_STATUS", "").lower() == "closed":
                             st.warning(f"Claim {claim_no} is already closed.", icon="❌")
                             return False
                         
@@ -579,9 +434,7 @@ def load_policy_from_json():
                     result = fetch_data(query)
                     if result:
                         # Check if claim is currently closed (must be closed to reopen)
-                        claim_status = result[0].get("CLAIM_STATUS", "")
-                        # Fix: Check if claim_status is None before calling lower()
-                        if not claim_status or claim_status.lower() != "closed":
+                        if result[0].get("CLAIM_STATUS", "").lower() != "closed":
                             st.warning(f"Claim {claim_no} is not closed and cannot be reopened.", icon="❌")
                             return False
                         
@@ -639,8 +492,6 @@ def show_policy_form():
                     form_data["TransactionType"] = "New Business"
                     try:
                         insert_policy(form_data)
-                        clear_session_state()
-
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
                         if "form_to_show" in st.session_state:
@@ -653,8 +504,6 @@ def show_policy_form():
                     except Exception as db_exc:
                         st.error(f"Failed to insert policy: {db_exc}")
             if back:
-                clear_session_state()
-
                 st.session_state.policy_edit_page = "main"
                 st.session_state.submission_mode = None
                 if "form_to_show" in st.session_state:
@@ -704,11 +553,8 @@ def show_policy_form():
                 if edit_fields:
                     try:
                         update_policy(original_policy["POLICY_NO"], edit_fields)
-                        clear_session_state()
-
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
-
                         keys_to_delete = [
                             "form_to_show", 
                             "form_defaults", 
@@ -731,8 +577,6 @@ def show_policy_form():
                     st.info("No fields were modified.")
 
             if back_renewal:
-                clear_session_state()
-
                 st.session_state.policy_edit_page = "main"
                 st.session_state.submission_mode = None
                 if "form_to_show" in st.session_state:
@@ -779,7 +623,6 @@ def show_policy_form():
                 if edit_fields:
                     try:
                         update_policy(original_policy["POLICY_NO"], edit_fields)
-                        clear_session_state()
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
                         keys_to_delete = [
@@ -802,7 +645,6 @@ def show_policy_form():
                     st.info("No fields were modified.")
 
             if back_mta:
-                clear_session_state()
                 st.session_state.policy_edit_page = "main"
                 st.session_state.submission_mode = None
                 if "form_to_show" in st.session_state:
@@ -853,7 +695,6 @@ def show_policy_form():
                             )
                             
                             # Clean up session state and return to main
-                            clear_session_state()
                             st.session_state.policy_edit_page = "main"
                             st.session_state.submission_mode = None
                             keys_to_delete = [
@@ -874,7 +715,6 @@ def show_policy_form():
                             st.error(f"Cancellation failed: {e}")
 
             if back_cancel:
-                clear_session_state()
                 st.session_state.policy_edit_page = "main"
                 st.session_state.submission_mode = None
                 if "form_to_show" in st.session_state:
@@ -894,40 +734,18 @@ def show_policy_form():
             
             with st.form("update_claim_form"):
                 # Editable fields
-                # intimated_amount = st.number_input("Intimated Amount", 
-                #                                 value=float(defaults.get("INTIMATED_AMOUNT", 0)), 
-                #                                 min_value=0.0, format="%.2f")
-
-                intimated_amount_value = defaults.get("INTIMATED_AMOUNT")
                 intimated_amount = st.number_input("Intimated Amount", 
-                                                value=float(intimated_amount_value) if intimated_amount_value is not None else 0.0, 
+                                                value=float(defaults.get("INTIMATED_AMOUNT", 0)), 
                                                 min_value=0.0, format="%.2f")
-                
-                
-                # intimated_sf = st.number_input("Intimated SF", 
-                #                             value=float(defaults.get("INTIMATED_SF", 0)), 
-                #                             min_value=0.0, format="%.2f")
-
-                intimated_sf_value = defaults.get("INTIMATED_SF")
                 intimated_sf = st.number_input("Intimated SF", 
-                                            value=float(intimated_sf_value) if intimated_sf_value is not None else 0.0, 
+                                            value=float(defaults.get("INTIMATED_SF", 0)), 
                                             min_value=0.0, format="%.2f")
-
                 claim_type = st.selectbox("Claim Type", ["OD", "TP"], 
                                         index=0 if defaults.get("TYPE", "OD") == "OD" else 1)
-                                        
-                # Fix for the status dropdown to safely handle None values
-                status_options = ["Under Review", "Approved", "Rejected", "Pending Documentation"]
-                current_status = defaults.get("CLAIM_STATUS", "Under Review")
-                
-                # Ensure current_status is not None and is in the list
-                if current_status is None or current_status not in status_options:
-                    current_status = "Under Review"
-                    
                 status = st.selectbox("Status", 
-                                    status_options,
-                                    index=status_options.index(current_status))
-                                    
+                                    ["Under Review", "Approved", "Rejected", "Pending Documentation"],
+                                    index=["Under Review", "Approved", "Rejected", "Pending Documentation"].index(
+                                        defaults.get("CLAIM_STATUS", "Under Review")))
                 remarks = st.text_area("Remarks", value=defaults.get("CLAIM_REMARKS", ""))
 
                 # Non-editable fields for reference
@@ -958,7 +776,6 @@ def show_policy_form():
                         }
                         
                         update_claim(claim_data["CLAIM_NO"], update_data)
-                        clear_session_state()
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
                         
@@ -980,7 +797,6 @@ def show_policy_form():
                         st.error(f"Failed to update claim: {e}")
                 
                 if back_update:
-                    clear_session_state()
                     st.session_state.policy_edit_page = "main"
                     st.session_state.submission_mode = None
                     
@@ -1005,29 +821,10 @@ def show_policy_form():
             
             with st.form("close_claim_form"):
                 # Closure fields
-                # final_settlement = st.number_input("Final Settlement Amount *", 
-                #                                 value=float(defaults.get("FINAL_SETTLEMENT_AMOUNT", 0)), 
-                #                                 min_value=0.0, format="%.2f")
-
-                # After (safe handling of None value):
-                final_settlement_value = defaults.get("FINAL_SETTLEMENT_AMOUNT")
-                # Convert to float only if it's not None, otherwise use 0
                 final_settlement = st.number_input("Final Settlement Amount *", 
-                                                value=float(final_settlement_value) if final_settlement_value is not None else 0.0, 
+                                                value=float(defaults.get("FINAL_SETTLEMENT_AMOUNT", 0)), 
                                                 min_value=0.0, format="%.2f")
-                # closure_date = st.date_input("Closure Date *", value=datetime.strptime(defaults.get("CLAIM_CLOSURE_DATE", datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d").date())
-                # Get the closure date value with safety check
-                closure_date_value = defaults.get("CLAIM_CLOSURE_DATE")
-                # If value exists and is a string, try to parse it, otherwise use current date
-                if closure_date_value and isinstance(closure_date_value, str):
-                    try:
-                        closure_date = st.date_input("Closure Date *", 
-                                                    value=datetime.strptime(closure_date_value, "%Y-%m-%d").date())
-                    except ValueError:
-                        closure_date = st.date_input("Closure Date *", value=datetime.now())
-                else:
-                    closure_date = st.date_input("Closure Date *", value=datetime.now())
-
+                closure_date = st.date_input("Closure Date *", value=datetime.strptime(defaults.get("CLAIM_CLOSURE_DATE", datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d").date())
                 closure_remarks = st.text_area("Closure Remarks *", value=defaults.get("CLAIM_REMARKS", ""))
 
                 # Display claim summary
@@ -1063,7 +860,6 @@ def show_policy_form():
                             }
                             
                             update_claim(claim_data["CLAIM_NO"], closure_data)
-                            clear_session_state()
                             st.session_state.policy_edit_page = "main"
                             st.session_state.submission_mode = None
                             
@@ -1085,7 +881,6 @@ def show_policy_form():
                             st.error(f"Failed to close claim: {e}")
                 
                 if back_close:
-                    clear_session_state()
                     st.session_state.policy_edit_page = "main"
                     st.session_state.submission_mode = None
                     
@@ -1094,17 +889,12 @@ def show_policy_form():
                         "form_to_show", 
                         "form_defaults", 
                         "claim_close_fetched", 
-                        "claim_close_data",
-                        "json_data",
-                        "submission_mode"
+                        "claim_close_data"
                     ]
 
                     for key in keys_to_delete:
                         if key in st.session_state:
                             del st.session_state[key]
-
-                    # Set main page state
-                    st.session_state.policy_edit_page = "main"
                     
                     st.rerun()
 
@@ -1118,19 +908,10 @@ def show_policy_form():
                 reason_for_reopen = st.text_area("Reason for Reopening *", 
                                                 value=defaults.get("REOPEN_REASON", ""))
                 reopen_date = st.date_input("Reopen Date", value=datetime.now())
-
-
-                # Fix for status selection
-                status_options = ["Under Review", "Pending Documentation", "Investigation"]
-                current_status = defaults.get("CLAIM_STATUS", "Under Review")
-                
-                # Safety check
-                if current_status is None or current_status not in status_options:
-                    current_status = "Under Review"
-        
                 new_status = st.selectbox("New Status", 
-                            status_options,
-                            index=status_options.index(current_status))
+                                        ["Under Review", "Pending Documentation", "Investigation"],
+                                        index=["Under Review", "Pending Documentation", "Investigation"].index(
+                                            defaults.get("CLAIM_STATUS", "Under Review")))
 
                 # Display claim summary
                 st.markdown("#### Closed Claim Summary")
@@ -1164,10 +945,6 @@ def show_policy_form():
                             }
                             
                             update_claim(claim_data["CLAIM_NO"], reopen_data)
-                            clear_session_state()
-
-                            # Set a flag to indicate successful submission
-                            st.session_state.reopen_success = True
                             st.session_state.policy_edit_page = "main"
                             st.session_state.submission_mode = None
                             
@@ -1184,13 +961,11 @@ def show_policy_form():
                                     del st.session_state[key]
                             
                             st.success(f"Claim {claim_data['CLAIM_NO']} reopened successfully!")
-                            time.sleep(2)
                             st.rerun()
                         except Exception as e:
                             st.error(f"Failed to reopen claim: {e}")
                 
                 if back_reopen:
-                    clear_session_state()
                     st.session_state.policy_edit_page = "main"
                     st.session_state.submission_mode = None
                     
@@ -1296,7 +1071,6 @@ def show_claims_form(defaults):
                             }
                             try:
                                 insert_claim(claim_data)
-                                clear_session_state()
                                 st.session_state.claims_edit_page = "main"
                                 st.session_state.submission_mode = None
                                 if "claim_no" in st.session_state:
@@ -1316,7 +1090,6 @@ def show_claims_form(defaults):
                     st.error(f"Error fetching policy data: {e}")
 
         if back:
-            clear_session_state()
             st.session_state.claims_edit_page = "main"
             st.session_state.submission_mode = None
             if "claim_no" in st.session_state:
