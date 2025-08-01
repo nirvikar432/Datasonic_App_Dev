@@ -22,14 +22,13 @@ from toba import toba_tab
 
 st.markdown("""
     <style>
-            
+       
         .block-container {
             padding-top: 0rem;
         }
         header {visibility: hidden;}
             padding-bottom: 0rem;
         }
-        header {visibility: hidden;}
             
 
          /* Smaller headings */
@@ -99,24 +98,44 @@ def main():
     import base64
 
     LOGO_IMAGE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media', 'AdroDatasonic.png'))
+    ADROSONIC_LOGO_IMAGE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media', 'Adrosonic.png'))
 
     st.markdown(
         """
         <style>
+        
         .container {
             display: flex;
         }
         .logo-text {
             font-weight:700 !important;
-            font-size:45px !important;
-            color: #FF7601 !important;
-            padding-top: 10px !important;
+            font-size:36px !important;
+            color: #FFFFFF !important;
+            font-family: "Montserrat", sans-serif !important;
+            padding-top: 5px !important;
         }
         .logo-img {
             float:right;
-            width: 100px !important;
-            height: 100px !important;
+            width: 70px !important;
+            height: 70px !important;
+            margin-right: 0px !important;
+            margin-top: 0px !important;
         }
+        .logo-img2 {
+            float:right;
+            width: 250px !important;
+            height: 50px !important;
+            margin-right: 0px !important;
+            margin-top: 0px !important;
+        }
+        .container-right {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+    }
         </style>
         """,
         unsafe_allow_html=True
@@ -127,6 +146,10 @@ def main():
         <div class="container">
             <img class="logo-img" src="data:image/png;base64,{base64.b64encode(open(LOGO_IMAGE, "rb").read()).decode()}">
             <p class="logo-text">Policy and Claims Management</p>
+        </div>
+
+        <div class="container-right">
+            <img class="logo-img2" src="data:image/png;base64,{base64.b64encode(open(ADROSONIC_LOGO_IMAGE, "rb").read()).decode()}">
         </div>
         """,
         unsafe_allow_html=True

@@ -17,9 +17,7 @@
       "Insurer_Name": "Secure Insurance",
       "Participation": 40.0,
       "FCA_Registration_Number": "FCA654321",
-      "Insurer_Type": "Reinsurer",
       "Insurer_Type_Index": 1,
-      "Longevity_Years": 3,
       "Delegated_Authority": false
     }
   ]

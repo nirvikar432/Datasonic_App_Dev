@@ -23,14 +23,14 @@ def fetch_json_data():
     """Fetch JSON data from a file"""
     try:
         #For Testing purposes, we can use a static file path
-        json_files = [
-            "streamlit-app/utils/json/TOBA_Broker.json",
-            "streamlit-app/utils/json/TOBA_Insurer.json"
-        ]
-        selected_file = random.choice(json_files)
+        # json_files = [
+        #     "streamlit-app/utils/json/TOBA_Broker.json",
+        #     "streamlit-app/utils/json/TOBA_Insurer.json"
+        # ]
+        # selected_file = random.choice(json_files)
 
-        # with open("streamlit-app/utils/json/TOBA_Insurer.json", "r") as f:
-        with open(selected_file, "r") as f:
+        with open("streamlit-app/utils/json/TOBA_Insurer.json", "r") as f:
+        # with open(selected_file, "r") as f:
             data = json.load(f)
             st.write("JSON Data Loaded:", data)
         return data

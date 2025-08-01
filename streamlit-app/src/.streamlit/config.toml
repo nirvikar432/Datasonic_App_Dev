@@ -1,16 +1,17 @@
 [theme]
-primaryColor = "#FF7601"                # Button and highlight color
-backgroundColor = "#FCECDD"             # Main background
-secondaryBackgroundColor = "#F3A26D"    # Dataframe and sidebar background
-textColor = "#000000ff"                   # Main text color
+primaryColor = "#03b7b7"                # Button and highlight color
+backgroundColor = "#1a2c47"             # Main background
+secondaryBackgroundColor = "#144074"    # Dataframe and sidebar background
+textColor = "#ffffff"                   # Main text color
 linkColor = "#3d3a2a"                  
-borderColor = "#d3d2ca"                 # Border color for active elements
+borderColor = "#78a0f6"                 # Border color for active elements
 showWidgetBorder = true
 baseRadius = "0.75rem"                    # General border radius
 buttonRadius = "full"                     # Button border radius (full)
 headingFontWeights = [600,500,500,500,500,500]
 headingFontSizes = ["3rem", "2rem"]
 showSidebarBorder = true
+
 
 
 

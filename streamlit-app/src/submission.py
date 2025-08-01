@@ -11,8 +11,8 @@ def submission_tab():
     # Add description boxes above each button
     with col1:
         st.markdown("""
-        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
-            <h4 style="color: #0066cc;">Policy Management</h4>
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
+            <h4 style="color: #23E4BA;">Policy Management</h4>
             <p>View insurance policies. Track policy details, premiums, and renewal dates.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -20,8 +20,8 @@ def submission_tab():
     
     with col2:
         st.markdown("""
-        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
-            <h4 style="color: #0066cc;">Claims Management</h4>
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
+            <h4 style="color: #23E4BA;">Claims Management</h4>
             <p>View insurance claims. Track claim status, payments, and settlement details.</p>
         </div>
         """, unsafe_allow_html=True)

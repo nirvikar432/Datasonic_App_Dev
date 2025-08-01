@@ -36,24 +36,24 @@ def new_submission_tab():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
-        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
-            <h4 style="color: #0066cc;">New Policy Submission</h4>
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
+            <h4 style="color: #23E4BA;">New Policy Submission</h4>
             <p>View insurance policies. Track policy details, premiums, and renewal dates.</p>
         </div>
         """, unsafe_allow_html=True)
         policy_btn = st.button("Policy", use_container_width=True, type="primary")
     with col2:
         st.markdown("""
-        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
-            <h4 style="color: #0066cc;">New Claims Processing</h4>
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
+            <h4 style="color: #23E4BA;">New Claims Processing</h4>
             <p>View insurance claims. Track claim status, payments, and settlement details.</p>
         </div>
         """, unsafe_allow_html=True)
         claims_btn = st.button("Claims", use_container_width=True, type="primary")
     with col3:
         st.markdown("""
-        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; height: 120px;">
-            <h4 style="color: #0066cc;">New Document Upload</h4>
+        <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
+            <h4 style="color: #23E4BA;">New Document Upload</h4>
             <p>Upload documents related to policies and claims.</p>
         </div>
         """, unsafe_allow_html=True)
