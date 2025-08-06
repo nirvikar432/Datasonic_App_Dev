@@ -18,9 +18,6 @@ def policy_tab():
         st.markdown('<span style="font-size: 2em;"></span>', unsafe_allow_html=True)
 
     try:
-        # for col in ["isCancelled", "TransactionType", "isLapsed", "CANCELLATION_DATE"]:
-        #     if col in df_policies.columns:
-        #         df_policies = df_policies.drop(columns=[col])
         if policy_search and not df_policies.empty:
             mask = df_policies.apply(lambda row: row.astype(str).str.contains(policy_search, case=False, na=False).any(), axis=1)
             df_policies = df_policies[mask]
@@ -36,9 +33,47 @@ def policy_tab():
 
             # Caption
             st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
-            # Table
-            # Set index to start from 1
+            
+            # Table with renamed columns
             display_df = df_policies.iloc[start_idx:end_idx].reset_index(drop=True)
+            
+            # Define column name mappings (customize as needed)
+            column_mapping = {
+                'CUST_ID': 'Customer ID',
+                'EXECUTIVE': 'Executive',
+                'BODY': 'Body Type',
+                'MAKE': 'Vehicle Make',
+                'MODEL': 'Vehicle Model',
+                'USE_OF_VEHICLE': 'Vehicle Use',
+                'MODEL_YEAR': 'Model Year',
+                'CHASSIS_NO': 'Chassis Number',
+                'REGN': 'Registration',
+                'POLICY_NO': 'Policy Number',
+                'POL_EFF_DATE': 'Effective Date',
+                'POL_EXPIRY_DATE': 'Expiry Date',
+                'SUM_INSURED': 'Sum Insured',
+                'POL_ISSUE_DATE': 'Issue Date',
+                'PREMIUM2': 'Premium Amount',
+                'DRV_DOB': 'Driver DOB',
+                'DRV_DLI': 'Driver License',
+                'VEH_SEATS': 'Vehicle Seats',
+                'PRODUCT': 'Product Type',
+                'POLICYTYPE': 'Policy Type',
+                'NATIONALITY': 'Nationality',
+                'Broker_ID': 'Broker ID',
+                'Broker_Name': 'Broker Name',
+                'Facility_ID': 'Facility ID',
+                'Facility_Name': 'Facility Name',
+                'isCancelled': 'Cancel Status',
+                'isLapsed': 'Lapse Status',
+                'CANCELLATION_DATE': 'Cancellation Date',
+                'TransactionType': 'Transaction Type'
+            }
+            
+            # Rename columns that exist in the dataframe
+            display_df = display_df.rename(columns=column_mapping)
+            
+            # Set index to start from 1
             display_df.index = display_df.index + 1
             st.dataframe(display_df, use_container_width=True, height=410, hide_index=True)
 

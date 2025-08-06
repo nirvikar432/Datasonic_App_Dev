@@ -32,11 +32,49 @@ def claims_tab():
 
             # Show caption above the table
             st.caption(f"Showing {start_idx+1}-{min(end_idx, total_rows)} of {total_rows} records")
+
+            column_mapping = {
+                'Account_Code': 'Account Code',
+                'DATE_OF_INTIMATION': 'Intimation Date',
+                'DATE_OF_ACCIDENT': 'Accident Date',
+                'PLACE_OF_LOSS': 'Loss Location',
+                'CLAIM_NO': 'Claim Number',
+                'AGE': 'Driver Age',
+                'TYPE': 'Claim Type',
+                'DRIVING_LICENSE_ISSUE': 'License Issue Date',
+                'BODY_TYPE': 'Vehicle Body Type',
+                'MAKE': 'Vehicle Make',
+                'MODEL': 'Vehicle Model',
+                'YEAR': 'Model Year',
+                'CHASIS_NO': 'Chassis Number',
+                'REG': 'Registration Number',
+                'SUM_INSURED': 'Sum Insured',
+                'POLICY_NO': 'Policy Number',
+                'POLICY_START': 'Policy Start Date',
+                'POLICY_END': 'Policy End Date',
+                'INTIMATED_AMOUNT': 'Intimated Amount',
+                'INTIMATED_SF': 'Intimated SF',
+                'EXECUTIVE': 'Executive',
+                'PRODUCT': 'Product Type',
+                'POLICYTYPE': 'Policy Type',
+                'NATIONALITY': 'Nationality',
+                'Broker_ID': 'Broker ID',
+                'Broker_Name': 'Broker Name',
+                'Facility_ID': 'Facility ID',
+                'Facility_Name': 'Facility Name',
+                'CLAIM_STAGE': 'Claim Stage',
+                'CLAIM_STATUS': 'Claim Status',
+                'FINAL_SETTLEMENT_AMOUNT': 'Final Settlement',
+                'CLAIM_CLOSURE_DATE': 'Closure Date',
+                'REOPEN_REASON': 'Reopen Reason',
+                'CLAIM_REMARKS': 'Remarks',
+                'UPDATE_DATE': 'Last Updated'
+            }
             # Show table
-            # st.dataframe(df_claims.iloc[start_idx:end_idx])
-            # Show table
-            # Set index to start from 1
+            # Rename columns that exist in the dataframe
             display_df = df_claims.iloc[start_idx:end_idx].reset_index(drop=True)
+            display_df = display_df.rename(columns=column_mapping)
+            # Set index to start from 1
             display_df.index = display_df.index + 1
             st.dataframe(display_df, use_container_width=True, height=410, hide_index=True)
 

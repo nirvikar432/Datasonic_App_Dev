@@ -22,7 +22,7 @@ from db_utils import insert_broker, insert_insurer, fetch_data
 
 
 def toba_tab():
-    """TOBA (Third-party Outsourcing Broker Agreement) management tab"""
+    """TOBA (Terms of Business Agreement) management tab"""
     st.header("TOBA - Broker & Insurer Management")
     
     if "toba_page" not in st.session_state:
@@ -193,6 +193,24 @@ def toba_tab():
             if brokers:
                 # Set index to start from 1
                 df = pd.DataFrame(brokers)
+                # Define column name mappings for brokers
+                broker_column_mapping = {
+                    'Broker_ID': 'Broker ID',
+                    'Broker_Name': 'Broker Name',
+                    'Commission': 'Commission Rate (%)',
+                    'Date_Of_Onboarding': 'Onboarding Date',
+                    'FCA_Registration_Number': 'FCA Registration No.',
+                    'Broker_Type': 'Broker Type',
+                    'Market_Access': 'Market Access',
+                    'Delegated_Authority': 'Delegated Authority',
+                    'Longevity_Years': 'Experience (Years)',
+                    'Status': 'Status',
+                    'Date_Of_Expiry': 'Expiry Date'
+                }
+                
+                # Rename columns that exist in the dataframe
+                df = df.rename(columns=broker_column_mapping)
+
                 df.index = df.index + 1
                 st.dataframe(df, use_container_width=True)
             else:
@@ -220,6 +238,25 @@ def toba_tab():
                     st.metric("Total Facilities", df['Facility_ID'].nunique())
                 with col2:
                     st.metric("Total Insurers", df['Insurer_ID'].nunique())
+
+                insurer_column_mapping = {
+                'Facility_ID': 'Facility ID',
+                'Facility_Name': 'Facility Name',
+                'Group_Size': 'Group Size',
+                'Insurer_ID': 'Insurer ID',
+                'Insurer_Name': 'Insurer Name',
+                'Participation': 'Participation (%)',
+                'Date_Of_Onboarding': 'Onboarding Date',
+                'FCA_Registration_Number': 'FCA Registration No.',
+                'Insurer_Type': 'Insurer Type',
+                'Delegated_Authority': 'Delegated Authority',
+                'LeadInsurer': 'Lead Insurer',
+                'Longevity_Years': 'Experience (Years)',
+                'Status': 'Status',
+                'Date_Of_Expiry': 'Expiry Date'
+            }
+                # Rename columns that exist in the dataframe
+                df = df.rename(columns=insurer_column_mapping)
                 
                 # Show the dataframe from index 1
                 df.index = df.index + 1
