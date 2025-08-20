@@ -3,6 +3,294 @@ from db_utils import fetch_data
 from datetime import datetime, date
 
 
+# def _format_submission_dt(dt: datetime) -> str:
+#     # Millisecond precision like 2015-10-19 05:57:01.900
+#     return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+def _build_unique_id(policy_no: str, submission_dt: datetime) -> str:
+    # Unique_ID = (Policy_No)_(Submission_Date) with compact timestamp yyyymmddHHMMSSmmm
+    ts_compact = submission_dt.strftime("%Y%m%d%H%M%S%f")[:-3]  # trim to milliseconds round to 17
+    return f"{policy_no}_{ts_compact}"
+
+
+def validate_numeric_input(value, field_name, data_type="int", min_val=None, max_val=None, required=True):
+    """
+    Validate numeric input from text fields
+    
+    Args:
+        value: The input value to validate
+        field_name: Name of the field for error messages
+        data_type: "int" or "float"
+        min_val: Minimum allowed value
+        max_val: Maximum allowed value
+        required: Whether the field is required
+    
+    Returns:
+        tuple: (is_valid, converted_value, error_message)
+    """
+    # Check if empty and required
+    if not value or str(value).strip() == "":
+        if required:
+            return False, None, f"{field_name} is required"
+        else:
+            return True, None, ""
+    
+    # Convert to string and strip whitespace
+    str_value = str(value).strip()
+    
+    # Check for non-numeric characters
+    if data_type == "int":
+        # Allow only digits, minus sign at start, and decimal point (will be converted to int)
+        if not str_value.replace('-', '').replace('.', '').isdigit():
+            return False, None, f"{field_name} must contain only numbers"
+        
+        try:
+            # Convert to float first to handle decimal strings, then to int
+            converted_value = int(float(str_value))
+        except (ValueError, TypeError):
+            return False, None, f"{field_name} must be a valid integer"
+            
+    elif data_type == "float":
+        # Allow digits, minus sign, and one decimal point
+        if str_value.count('.') > 1 or not str_value.replace('-', '').replace('.', '').isdigit():
+            return False, None, f"{field_name} must be a valid decimal number"
+        
+        try:
+            converted_value = float(str_value)
+        except (ValueError, TypeError):
+            return False, None, f"{field_name} must be a valid decimal number"
+    else:
+        return False, None, f"Invalid data type specified: {data_type}"
+    
+    # Check min/max constraints
+    if min_val is not None and converted_value < min_val:
+        return False, None, f"{field_name} must be at least {min_val}"
+    
+    if max_val is not None and converted_value > max_val:
+        return False, None, f"{field_name} must not exceed {max_val}"
+    
+    return True, converted_value, ""
+
+def validate_text_input(value, field_name, min_length=None, max_length=None, required=True, allowed_chars=None, pattern=None):
+    """
+    Validate text input fields
+    
+    Args:
+        value: The input value to validate
+        field_name: Name of the field for error messages
+        min_length: Minimum length required
+        max_length: Maximum length allowed
+        required: Whether the field is required
+        allowed_chars: String of allowed characters (e.g., "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        pattern: Regex pattern to match
+    
+    Returns:
+        tuple: (is_valid, cleaned_value, error_message)
+    """
+    import re
+    
+    # Handle None or empty values
+    if not value:
+        value = ""
+    
+    str_value = str(value).strip()
+    
+    # Check if empty and required
+    if not str_value and required:
+        return False, "", f"{field_name} is required"
+    
+    # Check minimum length
+    if min_length is not None and len(str_value) < min_length:
+        return False, str_value, f"{field_name} must be at least {min_length} characters long"
+    
+    # Check maximum length
+    if max_length is not None and len(str_value) > max_length:
+        return False, str_value, f"{field_name} must not exceed {max_length} characters"
+    
+    # Check allowed characters
+    if allowed_chars is not None:
+        for char in str_value:
+            if char not in allowed_chars:
+                return False, str_value, f"{field_name} contains invalid character: '{char}'"
+    
+    # Check regex pattern
+    if pattern is not None:
+        if not re.match(pattern, str_value):
+            return False, str_value, f"{field_name} format is invalid"
+    
+    return True, str_value, ""
+
+def validate_customer_id(cust_id):
+    """Specific validation for Customer ID"""
+    return validate_numeric_input(
+        cust_id, 
+        "Customer ID", 
+        data_type="int", 
+        min_val=1, 
+        max_val=999999, 
+        required=True
+    )
+
+def validate_vehicle_seats(seats):
+    """Specific validation for Vehicle Seats"""
+    return validate_numeric_input(
+        seats, 
+        "Vehicle Seats", 
+        data_type="int", 
+        min_val=1, 
+        max_val=50, 
+        required=False
+    )
+
+def validate_model_year(year):
+    """Specific validation for Model Year"""
+    from datetime import date
+    current_year = date.today().year
+    return validate_numeric_input(
+        year, 
+        "Model Year", 
+        data_type="int", 
+        min_val=1900, 
+        max_val=current_year, 
+        required=False
+    )
+
+def validate_sum_insured(amount):
+    """Specific validation for Sum Insured"""
+    return validate_numeric_input(
+        amount, 
+        "Sum Insured", 
+        data_type="float", 
+        min_val=0.01, 
+        max_val=99999999.99, 
+        required=True
+    )
+
+def validate_premium(amount):
+    """Specific validation for Premium"""
+    return validate_numeric_input(
+        amount, 
+        "Premium", 
+        data_type="int", 
+        min_val=1, 
+        max_val=9999999, 
+        required=True
+    )
+
+def validate_chassis_number(chassis):
+    """Specific validation for Chassis Number"""
+    # Chassis numbers are typically alphanumeric, 17 characters
+    return validate_text_input(
+        chassis, 
+        "Chassis Number", 
+        min_length=10, 
+        max_length=17, 
+        required=True, 
+        allowed_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    )
+
+def validate_policy_number(policy_no):
+    """Specific validation for Policy Number"""
+    return validate_text_input(
+        policy_no, 
+        "Policy Number", 
+        min_length=5, 
+        max_length=50, 
+        required=True, 
+        allowed_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/-_"
+    )
+
+def validate_executive_name(executive):
+    """Specific validation for Executive Name"""
+    return validate_text_input(
+        executive, 
+        "Executive", 
+        min_length=2, 
+        max_length=100, 
+        required=True, 
+        allowed_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz.-'"
+    )
+
+def validate_all_form_fields(form_data):
+    """
+    Validate all form fields at once
+    Returns: (is_valid, errors_dict, validated_data)
+    """
+    errors = {}
+    validated_data = {}
+    
+    # Validate Customer ID
+    is_valid, value, error = validate_customer_id(form_data.get("CUST_ID"))
+    if not is_valid:
+        errors["CUST_ID"] = error
+    else:
+        validated_data["CUST_ID"] = value
+    
+    # Validate Executive
+    is_valid, value, error = validate_executive_name(form_data.get("EXECUTIVE"))
+    if not is_valid:
+        errors["EXECUTIVE"] = error
+    else:
+        validated_data["EXECUTIVE"] = value
+    
+    # Validate Chassis Number
+    is_valid, value, error = validate_chassis_number(form_data.get("CHASSIS_NO"))
+    if not is_valid:
+        errors["CHASSIS_NO"] = error
+    else:
+        validated_data["CHASSIS_NO"] = value
+    
+    # Validate Policy Number
+    is_valid, value, error = validate_policy_number(form_data.get("POLICY_NO"))
+    if not is_valid:
+        errors["POLICY_NO"] = error
+    else:
+        validated_data["POLICY_NO"] = value
+    
+    # Validate Sum Insured
+    is_valid, value, error = validate_sum_insured(form_data.get("SUM_INSURED"))
+    if not is_valid:
+        errors["SUM_INSURED"] = error
+    else:
+        validated_data["SUM_INSURED"] = value
+    
+    # Validate Premium
+    is_valid, value, error = validate_premium(form_data.get("PREMIUM2"))
+    if not is_valid:
+        errors["PREMIUM2"] = error
+    else:
+        validated_data["PREMIUM2"] = value
+    
+    # Validate Vehicle Seats (optional)
+    if form_data.get("VEH_SEATS"):
+        is_valid, value, error = validate_vehicle_seats(form_data.get("VEH_SEATS"))
+        if not is_valid:
+            errors["VEH_SEATS"] = error
+        else:
+            validated_data["VEH_SEATS"] = value
+    
+    # Validate Model Year (optional)
+    if form_data.get("MODEL_YEAR"):
+        is_valid, value, error = validate_model_year(form_data.get("MODEL_YEAR"))
+        if not is_valid:
+            errors["MODEL_YEAR"] = error
+        else:
+            validated_data["MODEL_YEAR"] = value
+    
+    # Validate Nationality
+    is_valid, value, error = validate_text_input(
+        form_data.get("NATIONALITY"), 
+        "Nationality", 
+        min_length=2, 
+        max_length=50, 
+        required=True
+    )
+    if not is_valid:
+        errors["NATIONALITY"] = error
+    else:
+        validated_data["NATIONALITY"] = value
+    
+    return len(errors) == 0, errors, validated_data
 
 def policy_manual_form(defaults=None):
     if defaults is None:
@@ -28,10 +316,9 @@ def policy_manual_form(defaults=None):
         facility_names = ["Error loading facilities"]
         insurer_data = []
     
- # Move selections OUTSIDE the form for immediate re-rendering
     st.caption("Fields marked with * are mandatory")
-    
-    # Broker Details Section
+
+    # ====================================================== BROKER DETAILS FORM SECTION ======================================================
     st.subheader("Broker Details")
     selected_broker = st.selectbox("Select Broker *", broker_names, key="broker_select", index=broker_names.index(defaults.get("Broker_Name", "Select Broker"))  if defaults and defaults.get("Broker_Name", "Select Broker") in broker_names else 0)
     
@@ -47,7 +334,86 @@ def policy_manual_form(defaults=None):
             with col_b3:
                 st.text_input("Commission", value=str(selected_broker_data.get("Commission", "")), disabled=True, key="broker_commission_display")
 
-    # Insurer Details Section
+    
+    # ====================================================== POLICY MANUAL FORM SECTION ======================================================
+    # with st.form("policy_manual_form"):
+    # Customer Details Section
+    st.subheader("Customer Details")
+    col1, col2, col3 = st.columns(3)
+    cust_id = col1.text_input("Customer ID *", value=str(defaults.get("CUST_ID", "")))
+    regn = col2.text_input("REGION", value=defaults.get("REGN", ""))
+    executive = col3.text_input("EXECUTIVE *", value=defaults.get("EXECUTIVE", ""))
+
+    # Vehicle Details Section
+    st.subheader("Vehicle Details")
+    col4, col5, col6 = st.columns(3)
+    body = col4.text_input("BODY", value=defaults.get("BODY", ""))
+    make = col5.text_input("MAKE", value=defaults.get("MAKE", ""))
+    model = col6.text_input("MODEL", value=defaults.get("MODEL", ""))
+
+    col10, col11, col12 = st.columns(3)
+    veh_seats = col10.text_input("VEHICLE SEATS", value=str(defaults.get("VEH_SEATS", "")))
+    model_year = col11.text_input("MODEL YEAR", value=str(defaults.get("MODEL_YEAR", "")))
+    chassis_no = col12.text_input("CHASSIS NO *", value=defaults.get("CHASSIS_NO", ""))
+
+    col7, col8, col9 = st.columns(3)
+    use_of_vehicle = col7.text_input("USE OF VEHICLE", value=defaults.get("USE_OF_VEHICLE", ""))
+    product = col8.text_input("PRODUCT", value=defaults.get("PRODUCT", ""))
+
+    # Driver Details Section
+    st.subheader("Driver Details")
+    col13, col14, col24 = st.columns(3)
+    drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)),
+                                min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                max_value=date.today()       # Allow up to current date
+    )
+    drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)),
+                                min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
+                                max_value=date.today()       # Allow up to current date
+    )
+    nationality = col24.text_input("NATIONALITY *", value=defaults.get("NATIONALITY", ""))
+
+
+    # Coverage and Premium Details Section
+    st.subheader("Premium")
+    col15, col16, col17 = st.columns(3)
+    policy_no = col15.text_input("POLICY NO *", value=defaults.get("POLICY_NO", ""))
+    # Add real-time policy number validation
+    if policy_no.strip():
+        try:            
+            # Check if policy exists
+            check_query = f"SELECT COUNT(*) as count FROM New_Policy WHERE POLICY_NO = '{policy_no.strip()}'"
+            result = fetch_data(check_query)
+            
+            if result and result[0]['count'] > 0:
+                st.error("❌ This policy number already exists in the database!")
+                st.warning("Please use a different policy number for New Business.")
+            else:
+                st.success("✅ Policy number is available")
+        except Exception as e:
+            st.warning(f"Could not verify policy number: {e}")
+
+
+    policytype = col16.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
+    sum_insured = col17.text_input("SUM INSURED *", value=float(defaults.get("SUM_INSURED", 0.0)))
+
+    col21, col22, col23 = st.columns(3)
+    pol_issue_date = col21.date_input("POLICY ISSUE DATE *", value=defaults.get("POL_ISSUE_DATE", date.today()))
+    pol_eff_date = col22.date_input("POLICY EFFECTIVE DATE *", value=defaults.get("POL_EFF_DATE", date.today()))
+    # pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", date.today()))
+    def get_default_expiry_date():
+        today = date.today()
+        try:
+            return today.replace(year=today.year + 1)
+        except ValueError:  # Handle Feb 29 on non-leap years
+            return today.replace(year=today.year + 1, month=2, day=28)
+
+    pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", get_default_expiry_date()))
+
+    col18, col19, col20 = st.columns(3)
+    premium2 = col18.text_input("PREMIUM *", value=int(defaults.get("PREMIUM2", 0)))
+
+    # ====================================================== INSURER DETAILS FORM SECTION ======================================================
     st.subheader("Insurer Details")
     selected_facility = st.selectbox("Select Facility *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
     
@@ -84,76 +450,52 @@ def policy_manual_form(defaults=None):
                 st.table(insurer_df)
 
     with st.form("policy_manual_form"):
-        # Customer Details Section
-        st.subheader("Customer Details")
-        col1, col2, col3 = st.columns(3)
-        cust_id = col1.text_input("Customer ID *", value=str(defaults.get("CUST_ID", "")))
-        regn = col2.text_input("REGION", value=defaults.get("REGN", ""))
-        executive = col3.text_input("EXECUTIVE *", value=defaults.get("EXECUTIVE", ""))
-
-        # Vehicle Details Section
-        st.subheader("Vehicle Details")
-        col4, col5, col6 = st.columns(3)
-        body = col4.text_input("BODY", value=defaults.get("BODY", ""))
-        make = col5.text_input("MAKE", value=defaults.get("MAKE", ""))
-        model = col6.text_input("MODEL", value=defaults.get("MODEL", ""))
-
-        col10, col11, col12 = st.columns(3)
-        veh_seats = col10.text_input("VEHICLE SEATS", value=str(defaults.get("VEH_SEATS", "")))
-        model_year = col11.text_input("MODEL YEAR", value=str(defaults.get("MODEL_YEAR", "")))
-        chassis_no = col12.text_input("CHASSIS NO *", value=defaults.get("CHASSIS_NO", ""))
-
-        col7, col8, col9 = st.columns(3)
-        use_of_vehicle = col7.text_input("USE OF VEHICLE", value=defaults.get("USE_OF_VEHICLE", ""))
-        product = col8.text_input("PRODUCT", value=defaults.get("PRODUCT", ""))
-
-        # Driver Details Section
-        st.subheader("Driver Details")
-        col13, col14, col24 = st.columns(3)
-        drv_dob = col13.date_input("DRIVER DOB", value=defaults.get("DRV_DOB", date(2000,1,1)),
-                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
-                                   max_value=date.today()       # Allow up to current date
-        )
-        drv_dli = col14.date_input("DRIVER DLI", value=defaults.get("DRV_DLI", date(2000,1,1)),
-                                   min_value=date(1940, 1, 1),  # Allow dates as far back as 1940
-                                   max_value=date.today()       # Allow up to current date
-        )
-        nationality = col24.text_input("NATIONALITY *", value=defaults.get("NATIONALITY", ""))
 
 
-        # Coverage and Premium Details Section
-        st.subheader("Premium")
-        col15, col16, col17 = st.columns(3)
-        policy_no = col15.text_input("POLICY NO *", value=defaults.get("POLICY_NO", ""))
-        policytype = col16.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
-        sum_insured = col17.text_input("SUM INSURED *", value=str(defaults.get("SUM_INSURED", "")))
+        
+    # ====================================================== FORM SECTION ENDS ======================================================
+        # -------- System Generated Fields (Submission_Date & Unique_ID) --------
+        # We generate once per policy number change to keep stable while user edits.
+        policy_no_current = policy_no.strip()
+        session_key_root = "manual_policy_submission"
+        stored_policy_no = st.session_state.get(f"{session_key_root}_policy_no")
+        # if (stored_policy_no != policy_no_current) or (f"{session_key_root}_dt" not in st.session_state):
+        if (stored_policy_no != policy_no_current):
+            # (Re)generate
+            submission_dt_obj = datetime.now()
+            # .strftime("%Y-%m-%d %H:%M:%S.%f")
+            st.session_state[f"{session_key_root}_dt"] = submission_dt_obj
+            st.session_state[f"{session_key_root}_policy_no"] = policy_no_current
+            st.session_state[f"{session_key_root}_uid"] = _build_unique_id(policy_no_current, submission_dt_obj)
 
-        col21, col22, col23 = st.columns(3)
-        pol_issue_date = col21.date_input("POLICY ISSUE DATE *", value=defaults.get("POL_ISSUE_DATE", date.today()))
-        pol_eff_date = col22.date_input("POLICY EFFECTIVE DATE *", value=defaults.get("POL_EFF_DATE", date.today()))
-        # pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", date.today()))
-        def get_default_expiry_date():
-            today = date.today()
-            try:
-                return today.replace(year=today.year + 1)
-            except ValueError:  # Handle Feb 29 on non-leap years
-                return today.replace(year=today.year + 1, month=2, day=28)
+        submission_dt_obj = st.session_state[f"{session_key_root}_dt"]
+        unique_id_val = st.session_state[f"{session_key_root}_uid"]
 
-        pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", get_default_expiry_date()))
+        col_b1, _, col_b3 = st.columns(3)
+        with col_b1:
+            submit = st.form_submit_button("Submit")
 
-        col18, col19, col20 = st.columns(3)
-        premium2 = col18.text_input("PREMIUM *", value=str(defaults.get("PREMIUM2", "")))
+        with col_b3:
+            back = st.form_submit_button("Back")
 
-        submit = st.form_submit_button("Submit")
-        back = st.form_submit_button("Back")
 
-        # Convert text inputs to int where needed
+        # Fix the conversion functions in policy_manual_form
         def to_int(val):
-            try:
-                return int(val)
-            except Exception:
+            if val is None or val == "":
                 return None
-            
+            try:
+                return int(float(val))  # Convert to float first to handle decimal strings
+            except (ValueError, TypeError):
+                return None
+
+        def to_float(val):
+            if val is None or val == "":
+                return None
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return None
+
         # Get selected broker ID for form data
         selected_broker_id = ""
         if selected_broker and selected_broker != "Select Broker":
@@ -185,7 +527,7 @@ def policy_manual_form(defaults=None):
             "POLICY_NO": policy_no,
             "POL_EFF_DATE": pol_eff_date,
             "POL_EXPIRY_DATE": pol_expiry_date,
-            "SUM_INSURED": to_int(sum_insured),
+            "SUM_INSURED": to_float(sum_insured),
             "POL_ISSUE_DATE": pol_issue_date,
             "PREMIUM2": to_int(premium2),
             "DRV_DOB": drv_dob,
@@ -193,7 +535,11 @@ def policy_manual_form(defaults=None):
             "VEH_SEATS": to_int(veh_seats),
             "PRODUCT": product,
             "POLICYTYPE": policytype,
-            "NATIONALITY": nationality
+            "NATIONALITY": nationality,
+            # New fields
+            # "Submission_Date": submission_dt_obj,          # datetime object (can convert when inserting DB)
+            "Submission_Date": submission_dt_obj.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if isinstance(submission_dt_obj, datetime) else submission_dt_obj,
+            "Unique_ID": unique_id_val
         }
         
         # Validation for mandatory fields (add facility selection)
@@ -228,6 +574,30 @@ def policy_manual_form(defaults=None):
             if missing:
                 st.error(f"Please fill all mandatory fields: {', '.join(missing)}.")
                 return form_data, False, back  # Return False for submit to prevent processing
+            
+
+                # Validate all form fields
+            is_valid, validation_errors, validated_data = validate_all_form_fields({
+                "CUST_ID": cust_id,
+                "EXECUTIVE": executive,
+                "CHASSIS_NO": chassis_no,
+                "POLICY_NO": policy_no,
+                "SUM_INSURED": sum_insured,
+                "PREMIUM2": premium2,
+                "VEH_SEATS": veh_seats,
+                "MODEL_YEAR": model_year,
+                "NATIONALITY": nationality
+            })
+            
+            if not is_valid:
+                # Display all validation errors
+                st.error("Please enter the correct data in the fields:")
+                for field, error in validation_errors.items():
+                    st.error(f"• {error}")
+                return form_data, False, back
+            
+            # If validation passes, update form_data with validated values
+            form_data.update(validated_data)
         
         return form_data, submit, back
     

@@ -68,9 +68,9 @@ def insurer_form(defaults=None):
     # Initialize session state for group size if not exists
     if "insurer_group_size" not in st.session_state:
         st.session_state.insurer_group_size = defaults.get("Group_Size", 1)
-    
-    # Facility Details Section (outside the main form)
-    st.subheader("Facility Information")
+
+    # Carrier Details Section (outside the main form)
+    st.subheader("Carrier Information")
     st.caption("Fields marked with * are mandatory")
 
     col2, col3, col1, col4 = st.columns(4)
@@ -91,7 +91,7 @@ def insurer_form(defaults=None):
                 value=defaults.get("Date_Of_Onboarding", date.today())
             )
     with col2:
-        facility_name = st.text_input("Facility Name *", value=defaults.get("Facility_Name", ""),
+        facility_name = st.text_input("Carrier Name *", value=defaults.get("Facility_Name", ""),
                                      key="facility_name_input")
     with col3:
         # Group size selector that updates the form dynamically
@@ -328,9 +328,9 @@ def insurer_summary_display(insurer_data):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Facility Information")
-        st.write(f"**Facility ID:** {insurer_data['Facility_ID']}")
-        st.write(f"**Facility Name:** {insurer_data['Facility_Name']}")
+        st.subheader("Carrier Information")
+        st.write(f"**Carrier ID:** {insurer_data['Facility_ID']}")
+        st.write(f"**Carrier Name:** {insurer_data['Facility_Name']}")
         st.write(f"**Group Size:** {insurer_data['Group_Size']}")
         st.write(f"**Date of Onboarding:** {insurer_data['Date_Of_Onboarding']}")
         st.write(f"**Longevity (Years):** {insurer_data['Longevity_Years']}")
@@ -338,7 +338,7 @@ def insurer_summary_display(insurer_data):
         st.write(f"**Total Participation:** {insurer_data.get('Total_Participation', 0):.2f}%")
     
     with col2:
-        st.subheader("Insurers in this Facility")
+        st.subheader("Insurers in this Carrier")
         insurers = insurer_data.get('insurers', [])
         if insurers:
             lead_insurer_id = max(insurers, key=lambda x: x.get('Participation', 0)).get('Insurer_ID')
@@ -367,11 +367,11 @@ def facility_insurer_breakdown_display(facility_data):
     st.markdown("#### Facility & Insurer Breakdown")
     
     # Facility Overview
-    st.subheader("📋 Facility Overview")
+    st.subheader("📋 Carrier Overview")
     facility_col1, facility_col2, facility_col3 = st.columns(3)
     
     with facility_col1:
-        st.metric("Facility ID", facility_data['Facility_ID'])
+        st.metric("Carrier ID", facility_data['Facility_ID'])
     with facility_col2:
         st.metric("Group Size", facility_data['Group_Size'])
     with facility_col3:
@@ -379,7 +379,7 @@ def facility_insurer_breakdown_display(facility_data):
         st.metric("Total Participation", f"{total_participation:.2f}%", 
                  delta="Perfect!" if abs(total_participation - 100.0) <= 0.01 else f"Off by {abs(100 - total_participation):.2f}%")
     
-    st.write(f"**Facility Name:** {facility_data['Facility_Name']}")
+    st.write(f"**Carrier Name:** {facility_data['Facility_Name']}")
     
     # Insurers Breakdown
     st.subheader("🏢 Insurers Breakdown")

@@ -24,7 +24,7 @@ from policy_forms import (
 )
 
 from db_utils import (
-    insert_policy, update_policy, fetch_data, insert_claim, update_claim, insert_upload_document
+    insert_policy, fetch_data, insert_claim, insert_upload_document, update_document_unique_id
 )
 
 
@@ -39,6 +39,61 @@ API_CODE = os.getenv("API_CODE")
 
 # Ensure the parent directory is in sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add these functions directly to auto_loader.py to avoid circular imports
+def _build_unique_id(policy_no: str, submission_dt: datetime) -> str:
+    """Build unique ID with policy number and timestamp"""
+    if isinstance(submission_dt, str):
+        submission_dt = datetime.strptime(submission_dt, "%Y-%m-%d %H:%M:%S.%f")
+    ts_compact = submission_dt.strftime("%Y%m%d%H%M%S%f")[:-3]  # trim to milliseconds
+    return f"{policy_no}_{ts_compact}"
+
+def _clear_new_policy_generated_keys():
+    """Clear policy-specific generated keys"""
+    for k in [
+        "manual_policy_submission_dt",
+        "manual_policy_submission_policy_no",
+        "manual_policy_submission_uid"
+    ]:
+        if k in st.session_state:
+            del st.session_state[k]
+
+def _clear_new_claim_generated_keys():
+    """Clear claim-specific generated keys"""
+    for k in [
+        "manual_claim_submission_dt",
+        "manual_claim_submission_claim_no",
+        "manual_claim_submission_uid"
+    ]:
+        if k in st.session_state:
+            del st.session_state[k]
+
+def _fetch_latest_policy(policy_no: str):
+    """Pick the newest row for this policy number"""
+    query = f"""
+        SELECT TOP 1 *
+        FROM New_Policy
+        WHERE POLICY_NO = '{policy_no}'
+        ORDER BY 
+            CASE WHEN Submission_Date IS NULL THEN 1 ELSE 0 END ASC,
+            Submission_Date DESC,
+            Unique_ID DESC
+    """
+    return fetch_data(query)
+
+def _fetch_latest_claims(claim_no: str):
+    """Pick the newest row for this claim number"""
+    query = f"""
+        SELECT TOP 1 *
+        FROM New_Claims
+        WHERE CLAIM_NO = '{claim_no}'
+        ORDER BY 
+            CASE WHEN Submission_Date IS NULL THEN 1 ELSE 0 END ASC,
+            Submission_Date DESC,
+            Unique_ID DESC
+    """
+    return fetch_data(query)
+
+
 
 
 
@@ -57,7 +112,10 @@ def clear_session_state():
         # Claim specific keys  
         "claim_update_data", "claim_update_fetched", "claim_close_data", 
         "claim_close_fetched", "claim_reopen_data", "claim_reopen_fetched",
-        "claim_no"
+        "claim_no",
+
+        # GUID storage keys
+        "document_guids"  # NEW: Store GUIDs for form submission
     ]
     
     for key in keys_to_delete:
@@ -189,6 +247,8 @@ def upload_document():
         st.session_state.form_submitted = False
         if "json_data" in st.session_state:
             del st.session_state.json_data
+        if "document_guids" in st.session_state:
+            del st.session_state.document_guids
         st.success("Form submitted successfully!")
         st.rerun()
 
@@ -208,11 +268,10 @@ def upload_document():
                         file_names = []
                         file_hashes = []
                         guids = []
-
                         document_records = []
                         
                         # Process each file in the list
-                        for uploaded_file in uploaded_files:
+                        for i, uploaded_file in enumerate(uploaded_files):
                             # Save uploaded file to temp location
                             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                                 temp_file.write(uploaded_file.read())
@@ -256,10 +315,14 @@ def upload_document():
                                 "Original_File_Name": original_filename,  # Now formatted as filename_20250111_143045.pdf
                                 "GUID": guid,
                                 "Blob_Link": blob_url,
-                                "UploadDate": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "UploadDate": datetime.now(),
+                                # .strftime("%Y-%m-%d %H:%M:%S"),
                                 "ProcessingStatus": "Processing"
                             }
                             document_records.append(document_record)
+
+                        # Store GUIDs in session state for later use in form submission
+                        st.session_state.document_guids = guids
                         
                         # Process all files with API together
                         st.session_state.json_data = None
@@ -361,6 +424,17 @@ CLAIM_CLOSE_FIELDS = ['FINAL_SETTLEMENT_AMOUNT', 'CLAIM_CLOSURE_DATE', 'CLAIM_ST
 CLAIM_REOPEN_FIELDS = ['CLAIM_STATUS', 'REOPEN_REASON']
 
 CLAIMS_NB_FIELDS = ['POLICY_NO', 'DATE_OF_ACCIDENT', 'DATE_OF_INTIMATION', 'PLACE_OF_LOSS', 'CLAIM_TYPE', 'INTIMATED_AMOUNT', 'EXECUTIVE', 'NATIONALITY', 'INTIMATED_SF', 'ACCOUNT_CODE']
+
+
+def build_guid_fields(guids):
+    """Build GUID fields dictionary for database insertion - store all GUIDs in single column with comma separator"""
+    guid_fields = {}
+    
+    if guids:
+        # Join all GUIDs with comma separator and store in single GUID column
+        guid_fields["GUID"] = ",".join(guids)
+    
+    return guid_fields
 
 # Fetch json data from json.json file
 def fetch_json_data():
@@ -508,7 +582,7 @@ def load_policy_from_json():
             if policy_no:
                 # Fetch complete policy data from DB
                 try:
-                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                    query = f"SELECT * FROM New_Policy WHERE POLICY_NO = '{policy_no}'"
                     result = fetch_data(query)
                     if result:
                         # Store the original policy data in session state for renewal processing
@@ -545,13 +619,20 @@ def load_policy_from_json():
             if policy_no:
                 # Fetch complete policy data from DB
                 try:
-                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
-                    result = fetch_data(query)
+                    # query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
+                    # result = fetch_data(query)
+                    result = _fetch_latest_policy(policy_no)
                     if result:
+                        # Show already cancelled or Lapsed warning at initial state
+                        if result[0].get("isCancelled", 0) == 1:
+                            st.warning(f"Policy {policy_no} is already cancelled.", icon="❌")
+                        elif result[0].get("isLapsed", 0) == 1:
+                            st.warning(f"Policy {policy_no} is already lapsed.", icon="❌")
                         # Store the original policy data in session state for MTA processing
-                        st.session_state.mta_policy_data = result[0]
-                        st.session_state.mta_policy_fetched = True
-                        
+                        else:
+                            st.session_state.mta_policy_data = result[0]
+                            st.session_state.mta_policy_fetched = True
+
                         # Combine JSON data with existing policy data (JSON overrides DB)
                         # combined_data = {**result[0], **data}
                         combined_data = result[0].copy()
@@ -576,8 +657,9 @@ def load_policy_from_json():
             if policy_no:
                 # Fetch complete policy data from DB
                 try:
-                    query = f"SELECT * FROM Policy WHERE POLICY_NO = '{policy_no}'"
-                    result = fetch_data(query)
+                    # query = f"SELECT * FROM New_Policy WHERE POLICY_NO = '{policy_no}'"
+                    # result = fetch_data(query)
+                    result = _fetch_latest_policy(policy_no)
                     if result:
                         # Show already cancelled or Lapsed warning
                         if result[0].get("isCancelled", 0) == 1:
@@ -619,8 +701,9 @@ def load_policy_from_json():
             claim_no = data.get("CLAIM_NO", "")
             if claim_no:
                 try:
-                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
-                    result = fetch_data(query)
+                    # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    # result = fetch_data(query)
+                    result = _fetch_latest_claims(claim_no)
                     if result:
                         # Check if claim is already closed
                         claim_status = result[0].get("CLAIM_STATUS", "")
@@ -657,8 +740,9 @@ def load_policy_from_json():
             claim_no = data.get("CLAIM_NO", "")
             if claim_no:
                 try:
-                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
-                    result = fetch_data(query)
+                    # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    # result = fetch_data(query)
+                    result = _fetch_latest_claims(claim_no)
                     if result:
                         # Check if claim is already closed
                         claim_status = result[0].get("CLAIM_STATUS", "")
@@ -695,8 +779,9 @@ def load_policy_from_json():
             claim_no = data.get("CLAIM_NO", "")
             if claim_no:
                 try:
-                    query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
-                    result = fetch_data(query)
+                    # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
+                    # result = fetch_data(query)
+                    result = _fetch_latest_claims(claim_no)
                     if result:
                         # Check if claim is currently closed (must be closed to reopen)
                         claim_status = result[0].get("CLAIM_STATUS", "")
@@ -750,15 +835,119 @@ def show_policy_form():
 
         if st.session_state.form_to_show == "policy_manual_form":
             st.markdown("### NEW BUSINESS FORM")
+
+            ###### Early Policy Number Validation
+            policy_no_to_check = defaults.get("POLICY_NO", "").strip()
+            
+            if policy_no_to_check:
+                try:
+                    # Check if policy already exists in database
+                    existing_policy = _fetch_latest_policy(policy_no_to_check)
+                    
+                    if existing_policy and len(existing_policy) > 0:
+                        # Policy already exists - show warning and don't open form
+                        st.error(f"❌ Policy number '{policy_no_to_check}' already exists in the database!")
+                        st.warning("Cannot create a new business policy with an existing policy number.")
+                        
+                        # Show existing policy details
+                        with st.expander("Existing Policy Details", expanded=True):
+                            policy_data = existing_policy[0]
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.text_input("Policy No", value=policy_data.get("POLICY_NO", ""), disabled=True)
+                                st.text_input("Customer ID", value=str(policy_data.get("CUST_ID", "")), disabled=True)
+                                st.text_input("Executive", value=policy_data.get("EXECUTIVE", ""), disabled=True)
+                            
+                            with col2:
+                                st.text_input("Make", value=policy_data.get("MAKE", ""), disabled=True)
+                                st.text_input("Model", value=policy_data.get("MODEL", ""), disabled=True)
+                                st.text_input("Transaction Type", value=policy_data.get("TransactionType", ""), disabled=True)
+                            
+                            with col3:
+                                st.text_input("Premium", value=str(policy_data.get("PREMIUM2", "")), disabled=True)
+                                st.text_input("Sum Insured", value=str(policy_data.get("SUM_INSURED", "")), disabled=True)
+                                st.text_input("Status", 
+                                            value="Cancelled" if policy_data.get("isCancelled") == 1 
+                                                  else "Lapsed" if policy_data.get("isLapsed") == 1 
+                                                  else "Active", 
+                                            disabled=True)
+                        
+                        # Provide action buttons
+                        col_btn1, col_btn2, col_btn3 = st.columns(3)
+                        
+                        with col_btn1:
+                            if st.button("Try Different Transaction", type="primary", use_container_width=True):
+                                st.info("**Suggestions:**\n- Use **MTA** to modify existing policy\n- Use **Renewal** to renew existing policy\n- Use **Cancellation** to cancel existing policy")
+                        
+                        with col_btn2:
+                            if st.button("Edit Policy Number", type="secondary", use_container_width=True):
+                                st.info("Please upload a new document with a different policy number for New Business.")
+                        
+                        with col_btn3:
+                            if st.button("↩️ Back to Upload", use_container_width=True):
+                                clear_session_state()
+                                st.session_state.policy_edit_page = "main"
+                                st.session_state.submission_mode = None
+                                if "form_to_show" in st.session_state:
+                                    del st.session_state.form_to_show
+                                if "form_defaults" in st.session_state:
+                                    del st.session_state.form_defaults
+                                st.rerun()
+                        
+                        return  # Exit the function without showing the form
+                        
+                except Exception as e:
+                    st.error(f"Error checking policy existence: {e}")
+                    # Continue to form if there's an error checking (failsafe)
+
+            ###### Early Policy Number Validation End
+
+            # Add system generated fields before calling form
+            policy_no_current = defaults.get("POLICY_NO", "").strip()
+            session_key_root = "manual_policy_submission"
+            stored_policy_no = st.session_state.get(f"{session_key_root}_policy_no")
+            
+            if (stored_policy_no != policy_no_current) or (f"{session_key_root}_dt" not in st.session_state):
+                # Generate and snap to SQL datetime precision
+                submission_dt_obj = datetime.now()
+                st.session_state[f"{session_key_root}_dt"] = submission_dt_obj
+                st.session_state[f"{session_key_root}_policy_no"] = policy_no_current
+                st.session_state[f"{session_key_root}_uid"] = _build_unique_id(policy_no_current, submission_dt_obj)
+
+            submission_dt_obj = st.session_state[f"{session_key_root}_dt"]
+            unique_id_val = st.session_state[f"{session_key_root}_uid"]
             form_data, submit, back = policy_manual_form(defaults)
 
             if submit:
                 if not form_data["POLICY_NO"].strip():
                     st.error("Fill all the mandatory fields.")
                 else:
-                    form_data["TransactionType"] = "New Business"
+                    # Add system generated fields to form data
+                    form_data.update({
+                        "TransactionType": "New Business",
+                        "Submission_Date": submission_dt_obj,
+                        "Unique_ID": _build_unique_id(form_data["POLICY_NO"], submission_dt_obj)
+                    })
+
+                    # Add GUID fields if available from document upload
+                    guid_string = None
+                    if "document_guids" in st.session_state:
+                        guid_fields = build_guid_fields(st.session_state.document_guids)
+                        form_data.update(guid_fields)
+                        guid_string = guid_fields.get("GUID")  # ADD THIS LINE
+
                     try:
                         insert_policy(form_data)
+
+                        # Update document table with policy Unique_ID
+                        if guid_string:
+                            print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {form_data['Unique_ID']}")
+                            update_document_unique_id(guid_string, form_data["Unique_ID"])
+                        else:
+                            print("DEBUG: No GUID string found, skipping document update")
+                        _clear_new_policy_generated_keys()  # clear generated keys post-insert
+
                         clear_session_state()
 
                         st.session_state.policy_edit_page = "main"
@@ -789,47 +978,36 @@ def show_policy_form():
             form_data, submit_renewal, back_renewal = policy_renewal_form(defaults)
 
             if submit_renewal:
-                # Collect changed fields as per your logic
-                edit_fields = {}
-                original_policy = st.session_state.renewal_policy_data
+                try:
+                    original = st.session_state.renewal_policy_data
+                    submission_dt = datetime.now()
+                    new_row = original.copy()
+                    new_row.update(form_data)
+                    new_row.update({
+                        "TransactionType": "Renewal",
+                        "Submission_Date": submission_dt,
+                        "Unique_ID": _build_unique_id(original.get("POLICY_NO",""), submission_dt)
+                    })
 
-                for key, new_value in form_data.items():
-                    if key in original_policy:
-                        original_value = original_policy[key]
-                        # Handle date fields
-                        if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
-                            if hasattr(original_value, 'date'):
-                                original_date = original_value.date()
-                            elif isinstance(original_value, str):
-                                try:
-                                    if ' ' in original_value:
-                                        original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
-                                    else:
-                                        original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
-                                except:
-                                    original_date = original_value
-                            else:
-                                original_date = original_value
-                            if new_value != original_date:
-                                edit_fields[key] = new_value
-                        else:
-                            if str(new_value) != str(original_value):
-                                edit_fields[key] = new_value
+                    # Add GUID fields if available from document upload
+                    guid_string = None
+                    if "document_guids" in st.session_state:
+                        guid_fields = build_guid_fields(st.session_state.document_guids)
+                        new_row.update(guid_fields)
+                        guid_string = guid_fields.get("GUID")  # ADD THIS LINE
 
-                # Always update the dates
-                edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
-                edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
-                edit_fields["POL_EXPIRY_DATE"] = form_data["POL_EXPIRY_DATE"]
+                    insert_policy(new_row)
+                    
+                    # Update document table with policy Unique_ID
+                    if guid_string:
+                        print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                        update_document_unique_id(guid_string, new_row["Unique_ID"])
+                    else:
+                        print("DEBUG: No GUID string found, skipping document update")
 
-                if edit_fields:
-                    try:
-                        update_policy(original_policy["POLICY_NO"], edit_fields)
-                        clear_session_state()
-
-                        st.session_state.policy_edit_page = "main"
-                        st.session_state.submission_mode = None
-
-                        keys_to_delete = [
+                    st.session_state.renewal_inserted_data = new_row
+                    st.session_state.show_renewal_summary = True
+                    keys_to_delete = [
                             "form_to_show", 
                             "form_defaults", 
                             "renewal_policy_fetched", 
@@ -838,17 +1016,73 @@ def show_policy_form():
                             "renewal_changes"
                         ]
 
-                        for key in keys_to_delete:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                    for key in keys_to_delete:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.success("Renewal transaction inserted.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Renewal insert failed: {e}")
+                # Collect changed fields as per your logic
+                # edit_fields = {}
+                # original_policy = st.session_state.renewal_policy_data
+
+                # for key, new_value in form_data.items():
+                #     if key in original_policy:
+                #         original_value = original_policy[key]
+                #         # Handle date fields
+                #         if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                #             if hasattr(original_value, 'date'):
+                #                 original_date = original_value.date()
+                #             elif isinstance(original_value, str):
+                #                 try:
+                #                     if ' ' in original_value:
+                #                         original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                #                     else:
+                #                         original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                #                 except:
+                #                     original_date = original_value
+                #             else:
+                #                 original_date = original_value
+                #             if new_value != original_date:
+                #                 edit_fields[key] = new_value
+                #         else:
+                #             if str(new_value) != str(original_value):
+                #                 edit_fields[key] = new_value
+
+                # Always update the dates
+                # edit_fields["POL_ISSUE_DATE"] = form_data["POL_ISSUE_DATE"]
+                # edit_fields["POL_EFF_DATE"] = form_data["POL_EFF_DATE"]
+                # edit_fields["POL_EXPIRY_DATE"] = form_data["POL_EXPIRY_DATE"]
+
+                # if edit_fields:
+                #     try:
+                #         update_policy(original_policy["POLICY_NO"], edit_fields)
+                #         clear_session_state()
+
+                #         st.session_state.policy_edit_page = "main"
+                #         st.session_state.submission_mode = None
+
+                #         keys_to_delete = [
+                #             "form_to_show", 
+                #             "form_defaults", 
+                #             "renewal_policy_fetched", 
+                #             "renewal_policy_data",
+                #             "renewal_updated_data", 
+                #             "renewal_changes"
+                #         ]
+
+                #         for key in keys_to_delete:
+                #             if key in st.session_state:
+                #                 del st.session_state[key]
                     
-                        st.success("Renewal updated successfully.")
-                        time.sleep(2)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Renewal update failed: {e}")
-                else:
-                    st.info("No fields were modified.")
+                #         st.success("Renewal updated successfully.")
+                #         time.sleep(2)
+                #         st.rerun()
+                #     except Exception as e:
+                #         st.error(f"Renewal update failed: {e}")
+                # else:
+                #     st.info("No fields were modified.")
 
             if back_renewal:
                 clear_session_state()
@@ -862,64 +1096,106 @@ def show_policy_form():
                 st.rerun()
         
         elif st.session_state.form_to_show == "policy_mta_form":
-            # st.markdown("### MID-TERM ADJUSTMENT FORM")
             defaults = st.session_state.get("form_defaults", {})
             form_data, submit_mta, back_mta = policy_mta_form(defaults)
             
             if submit_mta:
-                # Collect changed fields as per your logic
-                edit_fields = {}
-                original_policy = st.session_state.mta_policy_data
+                try:
+                    original = st.session_state.mta_policy_data
+                    submission_dt = datetime.now()
+                    new_row = original.copy()
+                    new_row.update(form_data)
+                    new_row.update({
+                        "TransactionType": "MTA",
+                        "Submission_Date": submission_dt,
+                        "Unique_ID": _build_unique_id(original.get("POLICY_NO",""), submission_dt)
+                    })
+                    
+                    # Add GUID fields if available from document upload
+                    guid_string = None
+                    if "document_guids" in st.session_state:
+                        guid_fields = build_guid_fields(st.session_state.document_guids)
+                        new_row.update(guid_fields)
+                        guid_string = guid_fields.get("GUID")  # ADD THIS LINE
 
-                for key, new_value in form_data.items():
-                    if key in original_policy:
-                        original_value = original_policy[key]
-                        # Handle date fields
-                        if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
-                            if hasattr(original_value, 'date'):
-                                original_date = original_value.date()
-                            elif isinstance(original_value, str):
-                                try:
-                                    if ' ' in original_value:
-                                        original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
-                                    else:
-                                        original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
-                                except:
-                                    original_date = original_value
-                            else:
-                                original_date = original_value
-                            if new_value != original_date:
-                                edit_fields[key] = new_value
-                        else:
-                            if str(new_value) != str(original_value):
-                                edit_fields[key] = new_value
+                    insert_policy(new_row)
+                    
+                    # Update document table with policy Unique_ID
+                    if guid_string:
+                        print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                        update_document_unique_id(guid_string, new_row["Unique_ID"])
+                    else:
+                        print("DEBUG: No GUID string found, skipping document update")
 
-
-
-                if edit_fields:
-                    try:
-                        update_policy(original_policy["POLICY_NO"], edit_fields)
-                        clear_session_state()
-                        st.session_state.policy_edit_page = "main"
-                        st.session_state.submission_mode = None
-                        keys_to_delete = [
+                    st.session_state.mta_inserted_data = new_row
+                    st.session_state.show_mta_summary = True
+                    keys_to_delete = [
                             "form_to_show", 
                             "form_defaults", 
                             "mta_policy_fetched", 
                             "mta_policy_data"
                         ]
 
-                        for key in keys_to_delete:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                    for key in keys_to_delete:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.success("MTA transaction inserted.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"MTA insert failed: {e}")
+                # Collect changed fields as per your logic
+                # edit_fields = {}
+                # original_policy = st.session_state.mta_policy_data
+
+                # for key, new_value in form_data.items():
+                #     if key in original_policy:
+                #         original_value = original_policy[key]
+                #         # Handle date fields
+                #         if key in ["POL_EFF_DATE", "POL_EXPIRY_DATE", "POL_ISSUE_DATE", "DRV_DOB", "DRV_DLI"]:
+                #             if hasattr(original_value, 'date'):
+                #                 original_date = original_value.date()
+                #             elif isinstance(original_value, str):
+                #                 try:
+                #                     if ' ' in original_value:
+                #                         original_date = datetime.strptime(original_value[:10], "%Y-%m-%d").date()
+                #                     else:
+                #                         original_date = datetime.strptime(original_value, "%Y-%m-%d").date()
+                #                 except:
+                #                     original_date = original_value
+                #             else:
+                #                 original_date = original_value
+                #             if new_value != original_date:
+                #                 edit_fields[key] = new_value
+                #         else:
+                #             if str(new_value) != str(original_value):
+                #                 edit_fields[key] = new_value
+
+
+
+                # if edit_fields:
+                #     try:
+                #         update_policy(original_policy["POLICY_NO"], edit_fields)
+                #         clear_session_state()
+                #         st.session_state.policy_edit_page = "main"
+                #         st.session_state.submission_mode = None
+                #         keys_to_delete = [
+                #             "form_to_show", 
+                #             "form_defaults", 
+                #             "mta_policy_fetched", 
+                #             "mta_policy_data"
+                #         ]
+
+                #         for key in keys_to_delete:
+                #             if key in st.session_state:
+                #                 del st.session_state[key]
                         
-                        st.success("MTA updated successfully.")
-                        time.sleep(2)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"MTA update failed: {e}")
-                else:
-                    st.info("No fields were modified.")
+                #         st.success("MTA updated successfully.")
+                #         time.sleep(2)
+                #         st.rerun()
+                #     except Exception as e:
+                #         st.error(f"MTA update failed: {e}")
+                # else:
+                #     st.info("No fields were modified.")
 
             if back_mta:
                 clear_session_state()
@@ -936,7 +1212,7 @@ def show_policy_form():
                 st.rerun()
 
         elif st.session_state.form_to_show == "claim_manual_form":
-                show_claims_form(defaults)
+            show_claims_form(defaults)
         
         elif st.session_state.form_to_show == "policy_cancel_form":
             st.markdown("### POLICY CANCELLATION FORM")
@@ -946,6 +1222,11 @@ def show_policy_form():
             form_data, submit_cancel, back_cancel = policy_cancel_form(defaults)
 
             if submit_cancel:
+                new_premium = form_data["PREMIUM2"]
+                cancel_date = form_data["CANCELLATION_DATE"]
+                confirm_cancel = form_data.get("confirm_cancel", False)
+                original = st.session_state.cancel_policy_data
+                original_premium = st.session_state.cancel_policy_data.get("PREMIUM2", 0)
                 # Validate cancellation form data
                 if not form_data.get("confirm_cancel", False):
                     st.warning("Please confirm cancellation by checking the box before submitting.")
@@ -961,16 +1242,47 @@ def show_policy_form():
                     else:
                         try:
                             # Process the cancellation
+                            # Build new transaction row (do NOT modify original row)
+                            submission_dt = datetime.now()
+                            new_row = original.copy()
                             negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
-                            update_policy(
-                                original_policy["POLICY_NO"],
-                                {
-                                    "isCancelled": 1,
-                                    "PREMIUM2": int(negative_premium),
-                                    "CANCELLATION_DATE": str(cancel_date),
-                                    "TransactionType": "Policy Cancellation"
-                                }
-                            )
+                            # update_policy(
+                            #     original_policy["POLICY_NO"],
+                            #     {
+                            #         "isCancelled": 1,
+                            #         "PREMIUM2": int(negative_premium),
+                            #         "CANCELLATION_DATE": str(cancel_date),
+                            #         "TransactionType": "Policy Cancellation"
+                            #     }
+                            # )
+
+                            new_row.update({
+                                "PREMIUM2": -abs(int(new_premium) if new_premium else 0),
+                                "CANCELLATION_DATE": str(cancel_date),
+                                "isCancelled": 1,
+                                "TransactionType": "Policy Cancellation",
+                                "Submission_Date": submission_dt,
+                                "Unique_ID": _build_unique_id(original.get("POLICY_NO",""), submission_dt)
+                            })
+
+                            # Add GUID fields if available from document upload
+                            guid_string = None
+                            if "document_guids" in st.session_state:
+                                guid_fields = build_guid_fields(st.session_state.document_guids)
+                                new_row.update(guid_fields)
+                                guid_string = guid_fields.get("GUID")  # ADD THIS LINE
+
+                            insert_policy(new_row)
+                            
+                            # Update document table with policy Unique_ID
+                            if guid_string:
+                                print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                                update_document_unique_id(guid_string, new_row["Unique_ID"])
+                            else:
+                                print("DEBUG: No GUID string found, skipping document update")
+
+                            st.success(f"Cancellation transaction inserted for policy {original['POLICY_NO']}.")
+                            time.sleep(3)
                             
                             # Clean up session state and return to main
                             clear_session_state()
@@ -988,7 +1300,7 @@ def show_policy_form():
                                 if key in st.session_state:
                                     del st.session_state[key]
                             
-                            st.success(f"Policy {original_policy['POLICY_NO']} cancelled successfully.")
+                            # st.success(f"Policy {original_policy['POLICY_NO']} cancelled successfully.")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Cancellation failed: {e}")
@@ -1011,7 +1323,8 @@ def show_policy_form():
             st.markdown("### CLAIM UPDATE FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_update_data
-            
+
+            st.markdown(f"#### Update Claim: {claim_data.get('CLAIM_NO', '')}")
             with st.form("update_claim_form"):
                 # Editable fields
                 # intimated_amount = st.number_input("Intimated Amount", 
@@ -1067,17 +1380,39 @@ def show_policy_form():
 
                 if submit_update:
                     try:
-                        update_data = {
+                        submission_dt = datetime.now()
+                         # Build new transaction row (insert new row instead of updating)
+                        # original = st.session_state.claim_data
+                        original = st.session_state.claim_update_data
+                        new_row = original.copy()
+                        new_row.update({
                             "INTIMATED_AMOUNT": intimated_amount,
                             "INTIMATED_SF": intimated_sf,
                             "TYPE": claim_type,
                             "CLAIM_STATUS": status,
                             "CLAIM_REMARKS": remarks,
-                            "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "CLAIM_STAGE": "Updated"
-                        }
+                            "CLAIM_STAGE": "Updated",
+                            # System generated fields with aligned precision
+                            "Submission_Date": submission_dt,
+                            "Unique_ID": _build_unique_id(original.get("CLAIM_NO", ""), submission_dt)
+                        })
+
+                        # Add GUID fields if available from document upload
+                        guid_string = None
+                        if "document_guids" in st.session_state:
+                            guid_fields = build_guid_fields(st.session_state.document_guids)
+                            new_row.update(guid_fields)
+                            guid_string = guid_fields.get("GUID")  # ADD THIS LINE
+                
+                        insert_claim(new_row)
                         
-                        update_claim(claim_data["CLAIM_NO"], update_data)
+                        # Update document table with claim Unique_ID
+                        if guid_string:
+                            print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                            update_document_unique_id(guid_string, new_row["Unique_ID"])
+                        else:
+                            print("DEBUG: No GUID string found, skipping document update")
+
                         clear_session_state()
                         st.session_state.policy_edit_page = "main"
                         st.session_state.submission_mode = None
@@ -1095,6 +1430,7 @@ def show_policy_form():
                                 del st.session_state[key]
                         
                         st.success("Claim updated successfully!")
+                        time.sleep(2)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Failed to update claim: {e}")
@@ -1173,16 +1509,48 @@ def show_policy_form():
                         st.error("Please provide closure remarks.")
                     else:
                         try:
-                            closure_data = {
+                            # closure_data = {
+                            #     "FINAL_SETTLEMENT_AMOUNT": float(final_settlement),
+                            #     "CLAIM_CLOSURE_DATE": closure_date,
+                            #     "CLAIM_STATUS": "Closed",
+                            #     "CLAIM_REMARKS": closure_remarks,
+                            #     "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            #     "CLAIM_STAGE": "Closed"
+                            # }
+                            
+                            # update_claim(claim_data["CLAIM_NO"], closure_data)
+                            # Generate system metadata for closure transaction
+                            submission_dt = datetime.now()
+                            
+                            # Build new transaction row (insert new row instead of updating)
+                            original = st.session_state.claim_close_data
+                            new_row = original.copy()
+                            new_row.update({
                                 "FINAL_SETTLEMENT_AMOUNT": float(final_settlement),
                                 "CLAIM_CLOSURE_DATE": closure_date,
                                 "CLAIM_STATUS": "Closed",
-                                "CLAIM_REMARKS": closure_remarks,
-                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                "CLAIM_STAGE": "Closed"
-                            }
+                                "CLAIM_REMARKS": f"{claim_data.get('CLAIM_REMARKS', '')}\n\nClosure Remarks: {closure_remarks}",
+                                "CLAIM_STAGE": "Closed",
+                                "Submission_Date": submission_dt,
+                                "Unique_ID": _build_unique_id(original.get("CLAIM_NO", ""), submission_dt)
+                            })
+
+                            # Add GUID fields if available from document upload
+                            guid_string = None
+                            if "document_guids" in st.session_state:
+                                guid_fields = build_guid_fields(st.session_state.document_guids)
+                                new_row.update(guid_fields)
+                                guid_string = guid_fields.get("GUID")  # ADD THIS LINE
                             
-                            update_claim(claim_data["CLAIM_NO"], closure_data)
+                            insert_claim(new_row)
+                            
+                            # Update document table with claim Unique_ID
+                            if guid_string:
+                                print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                                update_document_unique_id(guid_string, new_row["Unique_ID"])
+                            else:
+                                print("DEBUG: No GUID string found, skipping document update")
+
                             clear_session_state()
                             st.session_state.policy_edit_page = "main"
                             st.session_state.submission_mode = None
@@ -1200,6 +1568,7 @@ def show_policy_form():
                                     del st.session_state[key]
                             
                             st.success(f"Claim {claim_data['CLAIM_NO']} closed successfully!")
+                            time.sleep(2)
                             st.rerun()
                         except Exception as e:
                             st.error(f"Failed to close claim: {e}")
@@ -1275,15 +1644,45 @@ def show_policy_form():
                         st.error("Please provide reason for reopening.")
                     else:
                         try:
-                            reopen_data = {
+                            # reopen_data = {
+                            #     "CLAIM_STATUS": new_status,
+                            #     "CLAIM_STAGE": "Reopened",
+                            #     "REOPEN_REASON": reason_for_reopen,
+                            #     "CLAIM_REMARKS": defaults.get("CLAIM_REMARKS", ""),  # Already formatted with date and reason
+                            #     "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            # }
+                            
+                            # update_claim(claim_data["CLAIM_NO"], reopen_data)
+                            submission_dt = datetime.now()
+                                
+                            # Build new transaction row (insert new row instead of updating)
+                            original = st.session_state.claim_reopen_data
+                            new_row = original.copy()
+                            new_row.update({
                                 "CLAIM_STATUS": new_status,
                                 "CLAIM_STAGE": "Reopened",
                                 "REOPEN_REASON": reason_for_reopen,
-                                "CLAIM_REMARKS": defaults.get("CLAIM_REMARKS", ""),  # Already formatted with date and reason
-                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
-                            
-                            update_claim(claim_data["CLAIM_NO"], reopen_data)
+                                "CLAIM_REMARKS": f"{claim_data.get('CLAIM_REMARKS', '')}\n\nReopened on {reopen_date}: {reason_for_reopen}",
+                                "Submission_Date": submission_dt,
+                                "Unique_ID": _build_unique_id(original.get("CLAIM_NO", ""), submission_dt)
+                            })
+
+                            # Add GUID fields if available from document upload
+                            guid_string = None
+                            if "document_guids" in st.session_state:
+                                guid_fields = build_guid_fields(st.session_state.document_guids)
+                                new_row.update(guid_fields)
+                                guid_string = guid_fields.get("GUID")  # ADD THIS LINE
+                    
+                            insert_claim(new_row)
+
+                            # Update document table with claim Unique_ID
+                            if guid_string:
+                                print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {new_row['Unique_ID']}")
+                                update_document_unique_id(guid_string, new_row["Unique_ID"])
+                            else:
+                                print("DEBUG: No GUID string found, skipping document update")
+
                             clear_session_state()
 
                             # Set a flag to indicate successful submission
@@ -1335,6 +1734,78 @@ def show_claims_form(defaults):
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         st.session_state.claim_no = f"CLM{timestamp}"
 
+    ###### Early Claim Number Validation
+    claim_no_to_check = defaults.get("CLAIM_NO", st.session_state.claim_no).strip()
+    
+    if claim_no_to_check:
+        try:
+            # Check if claim already exists in database
+            existing_claim = _fetch_latest_claims(claim_no_to_check)
+            
+            if existing_claim and len(existing_claim) > 0:
+                # Claim already exists - show warning and don't open form
+                st.error(f"❌ Claim number '{claim_no_to_check}' already exists in the database!")
+                st.warning("Cannot create a new claim with an existing claim number.")
+                
+                # Show existing claim details
+                with st.expander("Existing Claim Details", expanded=True):
+                    claim_data = existing_claim[0]
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.text_input("Claim No", value=claim_data.get("CLAIM_NO", ""), disabled=True)
+                        st.text_input("Policy No", value=claim_data.get("POLICY_NO", ""), disabled=True)
+                        st.text_input("Executive", value=claim_data.get("EXECUTIVE", ""), disabled=True)
+                    
+                    with col2:
+                        st.text_input("Claim Type", value=claim_data.get("TYPE", ""), disabled=True)
+                        st.text_input("Place of Loss", value=claim_data.get("PLACE_OF_LOSS", ""), disabled=True)
+                        st.text_input("Intimated Amount", value=str(claim_data.get("INTIMATED_AMOUNT", "")), disabled=True)
+                    
+                    with col3:
+                        st.text_input("Claim Status", value=claim_data.get("CLAIM_STATUS", ""), disabled=True)
+                        st.text_input("Claim Stage", value=claim_data.get("CLAIM_STAGE", ""), disabled=True)
+                        st.text_input("Date of Accident", value=str(claim_data.get("DATE_OF_ACCIDENT", "")), disabled=True)
+                
+                # Provide action buttons
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                
+                with col_btn1:
+                    if st.button("🔄 Try Different Transaction", type="primary", use_container_width=True):
+                        st.info("💡 **Suggestions:**\n- Use **Claim Update** to modify existing claim\n- Use **Claim Closure** to close existing claim\n- Use **Claim Reopen** to reopen closed claim")
+                
+                with col_btn2:
+                    if st.button("📝 Edit Claim Number", type="secondary", use_container_width=True):
+                        st.info("Please upload a new document with a different claim number for New Claim.")
+                        # Allow user to generate a new claim number
+                        if st.button("🆕 Generate New Claim Number"):
+                            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                            new_claim_no = f"CLM{timestamp}"
+                            st.session_state.claim_no = new_claim_no
+                            st.success(f"New claim number generated: {new_claim_no}")
+                            st.rerun()
+                
+                with col_btn3:
+                    if st.button("↩️ Back to Upload", use_container_width=True):
+                        clear_session_state()
+                        st.session_state.claims_edit_page = "main"
+                        st.session_state.submission_mode = None
+                        if "claim_no" in st.session_state:
+                            del st.session_state.claim_no
+                        if "form_to_show" in st.session_state:
+                            del st.session_state.form_to_show
+                        if "form_defaults" in st.session_state:
+                            del st.session_state.form_defaults
+                        st.rerun()
+                
+                return  # Exit the function without showing the form
+                
+        except Exception as e:
+            st.error(f"Error checking claim existence: {e}")
+            # Continue to form if there's an error checking (failsafe)
+
+    ###### Early Claim Number Validation End
+
     with st.form("new_claim_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -1352,6 +1823,21 @@ def show_claims_form(defaults):
             intimated_sf = st.number_input("Intimated SF", value=defaults.get("INTIMATED_SF", 0.0), key="claim_intimated_sf")
             account_code_value = st.text_input("Account Code", value=defaults.get("ACCOUNT_CODE", ""), key="claim_account_code")
 
+        # -------- System Generated Fields (Submission_Date & Unique_ID) --------
+        claim_no_current = claim_no.strip()
+        session_key_root = "manual_claim_submission"
+        stored_claim_no = st.session_state.get(f"{session_key_root}_claim_no")
+        if (stored_claim_no != claim_no_current) or (f"{session_key_root}_dt" not in st.session_state):
+            # Generate and snap to SQL datetime precision
+            submission_dt_obj = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            st.session_state[f"{session_key_root}_dt"] = submission_dt_obj
+            st.session_state[f"{session_key_root}_claim_no"] = claim_no_current
+            st.session_state[f"{session_key_root}_uid"] = _build_unique_id(claim_no_current, submission_dt_obj)
+
+        submission_dt_obj = st.session_state[f"{session_key_root}_dt"]
+        unique_id_val = st.session_state[f"{session_key_root}_uid"]
+
+
         submit = st.form_submit_button("Submit New Claim")
         back = st.form_submit_button("Back", type="secondary")
 
@@ -1360,8 +1846,7 @@ def show_claims_form(defaults):
                 st.error("Please fill all mandatory fields marked with *")
             else:
                 try:
-                    query = f"SELECT * FROM dbo.Policy WHERE POLICY_NO = '{policy_no}'"
-                    policy_result = fetch_data(query)
+                    policy_result = _fetch_latest_policy(policy_no)
                     if policy_result:
                         policy_data = policy_result[0]
                         drv_dob = policy_data.get("DRV_DOB", None)
@@ -1412,10 +1897,29 @@ def show_claims_form(defaults):
                                 "Facility_Name": policy_data.get("Facility_Name", ""),
                                 "CLAIM_STAGE": "New Claim",
                                 "CLAIM_STATUS": "New Claim",
-                                "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                # "UPDATE_DATE": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                # System generated fields with aligned precision
+                                "Submission_Date": submission_dt_obj,
+                                "Unique_ID": unique_id_val
                             }
+                            
+                            # Add GUID fields if available from document upload
+                            guid_string = None  # FIXED: was guid_string = {}
+                            if "document_guids" in st.session_state:
+                                guid_fields = build_guid_fields(st.session_state.document_guids)
+                                claim_data.update(guid_fields)
+                                guid_string = guid_fields.get("GUID")  # ADD THIS LINE
+                
                             try:
                                 insert_claim(claim_data)
+                                
+                                # Update document table with claim Unique_ID
+                                if guid_string:
+                                    print(f"DEBUG: Calling update_document_unique_id with: {guid_string}, {claim_data['Unique_ID']}")
+                                    update_document_unique_id(guid_string, claim_data["Unique_ID"])
+                                else:
+                                    print("DEBUG: No GUID string found, skipping document update")
+
                                 clear_session_state()
                                 st.session_state.claims_edit_page = "main"
                                 st.session_state.submission_mode = None
@@ -1426,6 +1930,8 @@ def show_claims_form(defaults):
                                 if "form_defaults" in st.session_state:
                                     del st.session_state.form_defaults
                                 st.success(f"Claim {claim_no} created successfully!")
+                                _clear_new_claim_generated_keys()  # Clear generated keys post-insert
+
                                 time.sleep(5)
                                 st.rerun()
                             except Exception as db_exc:

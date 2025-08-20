@@ -48,7 +48,7 @@ def image_upload_tab():
                 with st.expander(f"Image {i+1}: {uploaded_file.name}", expanded=True):
                     # Display image
                     image = Image.open(uploaded_file)
-                    st.image(image, caption=f"Uploaded: {uploaded_file.name}", use_container_width =True)
+                    st.image(image, caption=f"Uploaded: {uploaded_file.name}", use_column_width=True)
                     
                     # Image details
                     img_details = get_image_details(image, uploaded_file)

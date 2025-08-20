@@ -254,7 +254,7 @@ def main():
     # st.title("Policy and Claims Management")
     # tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Analytics"])
 
-    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "AutoAssure"])
+    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Vision-AI"])
 
     with tabs[0]:
         submission_tab()

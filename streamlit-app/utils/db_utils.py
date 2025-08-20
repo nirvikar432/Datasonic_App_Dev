@@ -40,7 +40,10 @@ def insert_policy(policy_data):
     cursor = conn.cursor()
     columns = ', '.join(policy_data.keys())
     placeholders = ', '.join(['?'] * len(policy_data))
-    sql = f"INSERT INTO Policy ({columns}) VALUES ({placeholders})"
+    #     # Add debug logging
+    # print(f"Inserting PREMIUM2: {policy_data.get('PREMIUM2')} (type: {type(policy_data.get('PREMIUM2'))})")
+    # print(f"Inserting SUM_INSURED: {policy_data.get('SUM_INSURED')} (type: {type(policy_data.get('SUM_INSURED'))})")
+    sql = f"INSERT INTO New_Policy ({columns}) VALUES ({placeholders})"
     try:
         cursor.execute(sql, list(policy_data.values()))
         conn.commit()
@@ -48,16 +51,16 @@ def insert_policy(policy_data):
         cursor.close()
         conn.close()
 
-def update_policy(policy_no, update_fields):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    set_clause = ', '.join([f"{col} = ?" for col in update_fields.keys()])
-    sql = f"UPDATE Policy SET {set_clause} WHERE POLICY_NO = ?"
-    params = list(update_fields.values()) + [policy_no]
-    cursor.execute(sql, params)
-    conn.commit()
-    cursor.close()
-    conn.close()
+# def update_policy(policy_no, update_fields):
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+#     set_clause = ', '.join([f"{col} = ?" for col in update_fields.keys()])
+#     sql = f"UPDATE New_Policy SET {set_clause} WHERE POLICY_NO = ?"
+#     params = list(update_fields.values()) + [policy_no]
+#     cursor.execute(sql, params)
+#     conn.commit()
+#     cursor.close()
+#     conn.close()
 
 
 def execute_query(query):
@@ -306,25 +309,25 @@ def insert_claim(claim_data):
     placeholders = ', '.join(['?' for _ in claim_data])
     values = tuple(claim_data.values())
     
-    query = f"INSERT INTO Claims ({columns}) VALUES ({placeholders})"
+    query = f"INSERT INTO New_Claims ({columns}) VALUES ({placeholders})"
     cursor.execute(query, values)
     conn.commit()
     cursor.close()
     conn.close()
 
-def update_claim(claim_no, update_data):
-    """Update existing claim in database"""    
-    conn = get_db_connection()
-    cursor = conn.cursor()
+# def update_claim(claim_no, update_data):
+#     """Update existing claim in database"""    
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
     
-    set_clause = ', '.join([f"{key} = ?" for key in update_data.keys()])
-    values = tuple(update_data.values()) + (claim_no,)
+#     set_clause = ', '.join([f"{key} = ?" for key in update_data.keys()])
+#     values = tuple(update_data.values()) + (claim_no,)
     
-    query = f"UPDATE Claims SET {set_clause} WHERE CLAIM_NO = ?"
-    cursor.execute(query, values)
-    conn.commit()
-    cursor.close()
-    conn.close()
+#     query = f"UPDATE Claims SET {set_clause} WHERE CLAIM_NO = ?"
+#     cursor.execute(query, values)
+#     conn.commit()
+#     cursor.close()
+#     conn.close()
     
 
 
@@ -605,3 +608,101 @@ def insert_upload_document(document_data):
         
     except Exception as e:
         raise Exception(f"Database insert failed: {e}")
+    
+
+# def update_document_unique_id(guid_string, unique_id):
+#     """Update document table's Unique_ID based on comma-separated GUID string"""
+#     if not guid_string or not unique_id:
+#         return
+    
+#     conn = None
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+        
+#         # Split comma-separated GUIDs
+#         guids = [guid.strip() for guid in guid_string.split(',') if guid.strip()]
+        
+#         # Update each document record
+#         for guid in guids:
+#             update_query = """
+#             UPDATE document 
+#             SET Unique_ID = ? 
+#             WHERE GUID = ? AND (Unique_ID IS NULL OR Unique_ID = '')
+#             """
+#             cursor.execute(update_query, (unique_id, guid))
+        
+#         conn.commit()
+#         print(f"Updated {len(guids)} document records with Unique_ID: {unique_id}")
+        
+#     except Exception as e:
+#         if conn:
+#             conn.rollback()
+#         print(f"Error updating document Unique_ID: {e}")
+#         raise
+#     finally:
+#         if conn:
+#             cursor.close()
+#             conn.close()
+
+
+def update_document_unique_id(guid_string, unique_id):
+    """Update document table's Unique_ID based on comma-separated GUID string"""
+    if not guid_string or not unique_id:
+        print(f"DEBUG: Missing data - guid_string: {guid_string}, unique_id: {unique_id}")
+        return
+    
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Split comma-separated GUIDs
+        guids = [guid.strip() for guid in guid_string.split(',') if guid.strip()]
+        print(f"DEBUG: Processing {len(guids)} GUIDs: {guids}")
+        print(f"DEBUG: Unique_ID to set: {unique_id}")
+        
+        # Check existing records first
+        for guid in guids:
+            check_query = "SELECT GUID, Unique_ID, Original_File_Name FROM document WHERE GUID = ?"
+            cursor.execute(check_query, (guid,))
+            existing = cursor.fetchone()
+            if existing:
+                print(f"DEBUG: Found document - GUID: {existing[0]}, Current Unique_ID: {existing[1]}, File: {existing[2]}")
+            else:
+                print(f"DEBUG: No document found with GUID: {guid}")
+        
+        # Update each document record
+        updated_count = 0
+        for guid in guids:
+            update_query = """
+            UPDATE document 
+            SET Unique_ID = ? 
+            WHERE GUID = ? AND (Unique_ID IS NULL OR Unique_ID = '')
+            """
+            cursor.execute(update_query, (unique_id, guid))
+            rows_affected = cursor.rowcount
+            print(f"DEBUG: Updated {rows_affected} rows for GUID: {guid}")
+            updated_count += rows_affected
+        
+        conn.commit()
+        print(f"DEBUG: Successfully updated {updated_count} document records with Unique_ID: {unique_id}")
+        
+        # Verify the updates
+        for guid in guids:
+            verify_query = "SELECT GUID, Unique_ID FROM document WHERE GUID = ?"
+            cursor.execute(verify_query, (guid,))
+            result = cursor.fetchone()
+            if result:
+                print(f"DEBUG: Verification - GUID: {result[0]}, New Unique_ID: {result[1]}")
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"ERROR: Failed to update document Unique_ID: {e}")
+        raise
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+

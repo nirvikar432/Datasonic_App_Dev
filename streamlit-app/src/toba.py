@@ -69,10 +69,10 @@ def toba_tab():
         
         # Working on upload status
         with col3:
-            st.markdown("##### Upload TOBA")
+            st.markdown("##### Upload TOBA Slip")
             st.markdown("<br>", unsafe_allow_html=True)
 
-            if st.button("Upload", use_container_width=True, type="primary", key="toba_upload_btn"):
+            if st.button("Upload Slip", use_container_width=True, type="primary", key="toba_upload_btn"):
                 st.session_state.toba_page = "upload_toba"
                 st.rerun()
 
@@ -307,7 +307,7 @@ def toba_tab():
             
         
     elif st.session_state.toba_page == "upload_toba":
-        st.subheader("Upload TOBA File")
+        st.subheader("Upload TOBA Slip")
         # uploaded_file = st.file_uploader("File input", type=["pdf"], key="toba_upload")
         load_data_from_json()
         show_insurer_broker_form()        
