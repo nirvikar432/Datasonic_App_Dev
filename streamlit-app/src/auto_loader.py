@@ -186,29 +186,32 @@ def upload_to_blob(file_path, blob_name, metadata):
 
 
 
-def process_document_with_api(file_path, file_name):
-    """Send document to API for processing and return the extracted JSON data"""
-    try:
-        # Prepare the files and data for the API request
-        files = {
-            'file': (file_name, open(file_path, 'rb'), 'application/pdf')
-        }
+# def process_document_with_api(file_path, file_name):
+#     """Send document to API for processing and return the extracted JSON data"""
+#     try:
+#         # Prepare the files and data for the API request
+#         files = {
+#             'file': (file_name, open(file_path, 'rb'), 'application/pdf')
+#         }
         
-        params = {
-            'code': API_CODE
-    }
+#         params = {
+#             'code': API_CODE
+#     }
         
-        # Make the API request
-        response = requests.post(API_URL, files=files, params=params)
+#         # Make the API request
+#         response = requests.post(API_URL, files=files, params=params)
         
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"API Error: {response.status_code} - {response.text}")
+#         # Check if the request was successful
+#         if response.status_code == 200:
+#             return response.json()
+#         else:
+#             raise Exception(f"API Error: {response.status_code} - {response.text}")
             
-    except Exception as e:
-        raise Exception(f"Error processing document with API: {e}")
+#     except Exception as e:
+#         raise Exception(f"Error processing document with API: {e}")
+
+
+
 
 def process_multiple_documents_with_api(file_paths, file_names):
     """Send multiple documents to API for processing and return the extracted JSON data"""
@@ -281,8 +284,8 @@ def upload_document():
                             # Updated: Insert datetime before file extension
                             file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
                             file_extension = os.path.splitext(uploaded_file.name)[1]
-                            current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
-                            original_filename = f"{file_name_without_ext}_{current_datetime}{file_extension}"
+                            # current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
+                            original_filename = f"{file_name_without_ext}{file_extension}"
 
                             guid = str(uuid.uuid4())
                             guids.append(guid)
@@ -291,20 +294,22 @@ def upload_document():
                             file_names.append(uploaded_file.name)
 
                             # Create unique filename with timestamp
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            unique_filename = f"{timestamp}_{file_hash[:8]}{file_extension}"
-                            
+                            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
+                            unique_filename = f"{timestamp}_{file_hash[:8]}_{guid[:4]}{file_extension}"
+
                             # Upload to Azure Blob Storage
                             metadata = {
                                 "guid": guid,
-                                "original_filename": original_filename,  # Now formatted as filename_20250111_143045.pdf
+                                "original_filename": original_filename,
+                                "Unique_filename": unique_filename,
                                 "file_hash": file_hash,
                                 "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             }
                             
                             blob_url = upload_to_blob(
                                 file_path=temp_file_paths[-1],
-                                blob_name=original_filename,  # ← NOW uses enhanced filename
+                                blob_name=unique_filename,  # ← NOW uses enhanced filename
                                 metadata=metadata
                             )
 
@@ -327,7 +332,7 @@ def upload_document():
                         # Process all files with API together
                         st.session_state.json_data = None
                         with st.spinner("Extracting data from documents..."):
-                            # process_document_with_api to handle multiple files
+                            # process_multiple_documents_with_api to handle multiple files
                             json_data = process_multiple_documents_with_api(
                                 file_paths=temp_file_paths,
                                 file_names=file_names
@@ -377,7 +382,7 @@ def upload_document():
                                 "JSON": json.dumps(json_data),
                                 "Type": document_type,
                                 "Transaction_Type": transaction_type,
-                                "Reference_Number": reference_number,  # NEW: Add reference number
+                                "Reference_Number": reference_number,  # NEW: Add reference number Policy_No or Claim_No
                                 "ProcessingStatus": "Completed"
                             })
                             
