@@ -28,23 +28,23 @@ def broker_form(defaults=None):
         col1, col2, col3 = st.columns(3)
 
         broker_name = col1.text_input("Broker Name *", value=defaults.get("Broker_Name", ""))
-        commission = col2.number_input("Commission (%)", value=float(defaults.get("Commission", 0.0)), 
+        commission = col2.number_input("Commission (%) *", value=float(defaults.get("Commission", 0.0)), 
                                     min_value=0.0, max_value=50.0, step=0.01, format="%.2f")
-        date_of_onboarding = col3.date_input("Date of Onboarding", 
+        date_of_onboarding = col3.date_input("Date of Onboarding *", 
                                             value=defaults.get("Date_Of_Onboarding", None))
 
         col4, col5, col6 = st.columns(3)
-        longevity_years = col4.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0)
-        fca_registration = col5.text_input("FCA Registration Number", 
+        longevity_years = col4.number_input("Longevity (Years) *", value=int(defaults.get("Longevity_Years", 0)), min_value=0)
+        fca_registration = col5.text_input("FCA Registration Number *", 
                                         value=defaults.get("FCA_Registration_Number", ""))
-        broker_type = col6.selectbox("Broker Type", 
+        broker_type = col6.selectbox("Broker Type *", 
                                     options=["Retail", "Wholesale", "Reinsurance", "Coverholder"],
                                     index=defaults.get("Broker_Type_Index", 0))
 
         col7,_,_ = st.columns(3)
         
 
-        market_access = col7.selectbox("Market Access", 
+        market_access = col7.selectbox("Market Access *", 
                                     options=["Lloyd’s", "Company Market", "Both"],
                                     index=defaults.get("Market_Access_Index", 0))
         
@@ -74,7 +74,12 @@ def broker_form(defaults=None):
         if submit:
             mandatory_fields = [
                 ("Broker Name", broker_name),
-                ("Commission", commission)
+                ("Commission", commission),
+                ("Date of Onboarding", date_of_onboarding),
+                ("FCA Registration Number", fca_registration),
+                ("Broker Type", broker_type),
+                ("Market Access", market_access),
+                ("Longevity (Years)", longevity_years)
             ]
             missing = [
                 name for name, val in mandatory_fields

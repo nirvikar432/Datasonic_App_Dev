@@ -23,7 +23,9 @@ from policy_forms import (
 
 )
 
-from db_utils import insert_policy, update_policy, fetch_data, insert_claim, update_claim
+from db_utils import (
+    insert_policy, update_policy, fetch_data, insert_claim, update_claim, insert_upload_document
+)
 
 
 
@@ -67,6 +69,44 @@ def clear_session_state():
     
     # Force browser cache refresh with timestamp
     st.session_state.last_reset = datetime.now().timestamp()
+
+
+
+def display_upload_summary(document_records, json_data):
+    """Display summary of uploaded documents and extracted data"""
+    
+    st.subheader("Upload Summary")
+    
+    # Document details in expandable section
+    with st.expander("Document Details", expanded=True):
+        for i, record in enumerate(document_records):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.write(f"**File {i+1}:** {record['Original_File_Name']}")
+                st.write(f"**GUID:** {record['GUID']}")
+                st.write(f"**Unique File Name:** {record['Unique_File_Name']}")
+            with col2:
+                st.write(f"**Type:** {record['Type']}")
+                st.write(f"**Transaction:** {record['Transaction_Type']}")
+            with col3:
+                st.write(f"**Hash:** {record['Hash'][:12]}...")
+                st.write(f"**Status:** {record['ProcessingStatus']}")
+            
+            st.divider()
+    
+    # Extracted JSON data
+    with st.expander("Extracted Data", expanded=False):
+        st.json(json_data)
+    
+    # Quick stats
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Files Processed", len(document_records))
+    with col2:
+        st.metric("Document Type", document_records[0]['Type'] if document_records else "N/A")
+    with col3:
+        st.metric("Transaction Type", document_records[0]['Transaction_Type'] if document_records else "N/A")
 
 def compute_file_hash(file_path):
     """Compute SHA-256 hash of file"""
@@ -168,6 +208,8 @@ def upload_document():
                         file_names = []
                         file_hashes = []
                         guids = []
+
+                        document_records = []
                         
                         # Process each file in the list
                         for uploaded_file in uploaded_files:
@@ -177,28 +219,52 @@ def upload_document():
                                 temp_file_paths.append(temp_file.name)
                             
                             # Generate unique identifier for each file
+                            # Updated: Insert datetime before file extension
+                            file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
+                            file_extension = os.path.splitext(uploaded_file.name)[1]
+                            current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
+                            original_filename = f"{file_name_without_ext}_{current_datetime}{file_extension}"
+
                             guid = str(uuid.uuid4())
                             guids.append(guid)
                             file_hash = compute_file_hash(temp_file_paths[-1])
                             file_hashes.append(file_hash)
                             file_names.append(uploaded_file.name)
+
+                            # Create unique filename with timestamp
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            unique_filename = f"{timestamp}_{file_hash[:8]}{file_extension}"
                             
                             # Upload to Azure Blob Storage
                             metadata = {
                                 "guid": guid,
+                                "original_filename": original_filename,  # Now formatted as filename_20250111_143045.pdf
+                                "file_hash": file_hash,
                                 "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             }
                             
                             blob_url = upload_to_blob(
                                 file_path=temp_file_paths[-1],
-                                blob_name=uploaded_file.name,
+                                blob_name=original_filename,  # ← NOW uses enhanced filename
                                 metadata=metadata
                             )
+
+                            # Prepare document record (without JSON data for now)
+                            document_record = {
+                                "Hash": file_hash,
+                                "Unique_File_Name": unique_filename,
+                                "Original_File_Name": original_filename,  # Now formatted as filename_20250111_143045.pdf
+                                "GUID": guid,
+                                "Blob_Link": blob_url,
+                                "UploadDate": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "ProcessingStatus": "Processing"
+                            }
+                            document_records.append(document_record)
                         
                         # Process all files with API together
                         st.session_state.json_data = None
                         with st.spinner("Extracting data from documents..."):
-                            # Modify process_document_with_api to handle multiple files
+                            # process_document_with_api to handle multiple files
                             json_data = process_multiple_documents_with_api(
                                 file_paths=temp_file_paths,
                                 file_names=file_names
@@ -206,6 +272,58 @@ def upload_document():
                             
                             # Store in session state
                             st.session_state.json_data = json_data
+
+                         # Step 3: Extract Type and Transaction Type from JSON
+                        document_type = None
+                        transaction_type = None
+                        reference_number = None  # NEW: For Policy/Claim linking
+
+
+                        if "classification" in json_data:
+                            classification = json_data.get("classification", {})
+                            document_type = classification.get("category", "")
+                            transaction_type = classification.get("subcategory", "")
+                        elif "Type" in json_data:
+                            transaction_type = json_data.get("Type", "")
+                            # Map transaction type to document type
+                            if "Policy" in transaction_type or "Business" in transaction_type:
+                                document_type = "policy"
+                            elif "Claim" in transaction_type:
+                                document_type = "claim"
+
+                        # NEW: Extract reference numbers based on document type
+                        extracted_fields = json_data.get("extracted_fields", {})
+                        
+                        if document_type == "policy":
+                            # For policy documents, extract POLICY_NO
+                            reference_number = extracted_fields.get("POLICY_NO", None)
+                        elif document_type == "claim":
+                            # For claim documents, extract CLAIM_NO
+                            reference_number = extracted_fields.get("CLAIM_NO", None)
+                        
+                        # Fallback: Try to extract from top level if not found in extracted_fields
+                        if not reference_number:
+                            if document_type == "policy":
+                                reference_number = json_data.get("POLICY_NO", None)
+                            elif document_type == "claim":
+                                reference_number = json_data.get("CLAIM_NO", None)
+
+                        # Step 4: Update document records with JSON data and insert into database
+                        for i, record in enumerate(document_records):
+                            record.update({
+                                "JSON": json.dumps(json_data),
+                                "Type": document_type,
+                                "Transaction_Type": transaction_type,
+                                "Reference_Number": reference_number,  # NEW: Add reference number
+                                "ProcessingStatus": "Completed"
+                            })
+                            
+                            # Insert into UploadDocument table
+                            try:
+                                insert_upload_document(record)
+                                st.success(f"Document {record['Original_File_Name']} logged successfully!")
+                            except Exception as db_error:
+                                st.warning(f"Failed to log document {record['Original_File_Name']}: {db_error}")
                         
                         # Clean up temp files
                         for file_path in temp_file_paths:
@@ -213,21 +331,13 @@ def upload_document():
                         
                         st.success(f"{len(uploaded_files)} document(s) uploaded successfully!")
                         
-                        # Display document details
-                        st.subheader("Documents Uploaded")
-                        for i, (name, hash_value, guid) in enumerate(zip(file_names, file_hashes, guids)):
-                            st.markdown(f"**Document {i+1}:**")
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.write(f"**File Name:** {name}")
-                                st.write(f"**Upload Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                            with col2:
-                                st.write(f"**Document ID:** {guid}")
-                                st.write(f"**File Hash:** {hash_value[:10]}...")
+                        display_upload_summary(document_records, json_data)
+
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
         
         if back:
+            clear_session_state()
             st.session_state.submission_mode = None
             if "json_data" in st.session_state:
                 del st.session_state.json_data
@@ -275,6 +385,7 @@ def fetch_json_data():
             # Extract the fields
             extracted_fields = data.get("extracted_fields", {})
             
+            
             # Clean up numeric fields that might have formatting
             if "SUM_INSURED" in extracted_fields and extracted_fields["SUM_INSURED"]:
                 # Remove non-numeric characters like "AED" and commas
@@ -303,6 +414,15 @@ def fetch_json_data():
                     premium = ''.join(c for c in premium if c.isdigit() or c == '.')
                     try:
                         extracted_fields["PREMIUM2"] = float(premium)
+                    except ValueError:
+                        pass
+            if "INTIMATED_SF" in extracted_fields and extracted_fields["INTIMATED_SF"]:
+                # Remove non-numeric characters like commas
+                intimated_sf = extracted_fields["INTIMATED_SF"]
+                if isinstance(intimated_sf, str):
+                    intimated_sf = ''.join(c for c in intimated_sf if c.isdigit() or c == '.')
+                    try:
+                        extracted_fields["INTIMATED_SF"] = float(intimated_sf)
                     except ValueError:
                         pass
 
@@ -943,7 +1063,7 @@ def show_policy_form():
                     st.text_input("Vehicle", value=f"{defaults.get('MAKE', '')} {defaults.get('MODEL', '')}", disabled=True)
 
                 submit_update = st.form_submit_button("Update Claim")
-                back_update = st.form_submit_button("Back to Main Menu")
+                back_update = st.form_submit_button("Back")
 
                 if submit_update:
                     try:
@@ -1044,7 +1164,7 @@ def show_policy_form():
 
                 confirm_closure = st.checkbox("I confirm I want to close this claim")
                 submit_close = st.form_submit_button("Close Claim")
-                back_close = st.form_submit_button("Back to Main Menu")
+                back_close = st.form_submit_button("Back")
 
                 if submit_close:
                     if not confirm_closure:
@@ -1146,7 +1266,7 @@ def show_policy_form():
 
                 confirm_reopen = st.checkbox("I confirm I want to reopen this claim")
                 submit_reopen = st.form_submit_button("Reopen Claim")
-                back_reopen = st.form_submit_button("Back to Main Menu")
+                back_reopen = st.form_submit_button("Back")
 
                 if submit_reopen:
                     if not confirm_reopen:
@@ -1233,7 +1353,7 @@ def show_claims_form(defaults):
             account_code_value = st.text_input("Account Code", value=defaults.get("ACCOUNT_CODE", ""), key="claim_account_code")
 
         submit = st.form_submit_button("Submit New Claim")
-        back = st.form_submit_button("Back to Main Menu", type="secondary")
+        back = st.form_submit_button("Back", type="secondary")
 
         if submit:
             if not all([policy_no.strip(), place_of_loss.strip(), executive.strip()]):

@@ -30,6 +30,8 @@ from datetime import datetime, date, timedelta
 
 def new_submission_tab():
     st.header("New Submission")
+    st.markdown("<br>", unsafe_allow_html=True)
+
     if "submission_mode" not in st.session_state:
         st.session_state.submission_mode = None
 
@@ -53,7 +55,7 @@ def new_submission_tab():
     with col3:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">New Document Upload</h4>
+            <h4 style="color: #23E4BA;">Upload a document</h4>
             <p>Upload documents related to policies and claims.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -200,24 +202,24 @@ def policy_edit_tab():
                     confirm_cancel = form_data.get("confirm_cancel", False)
                     original_premium = st.session_state.cancel_policy_data.get("PREMIUM2", 0)
                     
-                    if not confirm_cancel:
-                        st.warning("Please confirm cancellation by checking the box before submitting.")
+                    # if not confirm_cancel:
+                    #     st.warning("Please confirm cancellation by checking the box before submitting.")
                     # Validate return premium does not exceed original premium
-                    elif float(new_premium) > float(original_premium):
-                        st.error("Return Premium cannot exceed the original premium.")
+                    # elif float(new_premium) > float(original_premium):
+                    #     st.error("Return Premium cannot exceed the original premium.")
                     # Double confirm before DB update
-                    elif not st.session_state.get("cancel_final_confirm", False):
+                    if not st.session_state.get("cancel_final_confirm", False):
                         st.session_state.cancel_final_confirm = True
                         st.warning("This action will permanently cancel the policy. Click 'Submit Cancellation' again to proceed.")
                     else:
                         try:
                             # Keep the existing calculation logic
-                            negative_premium = -abs(float(new_premium) if new_premium is not None else 0)
+                            negative_premium = -abs(int(new_premium) if new_premium is not None else 0)
                             update_policy(
                                 st.session_state.cancel_policy_data["POLICY_NO"],
                                 {
                                     "isCancelled": 1,
-                                    "PREMIUM2": int(negative_premium),
+                                    "PREMIUM2": negative_premium,
                                     "CANCELLATION_DATE": str(cancel_date),
                                     "TransactionType": "Policy Cancellation"
                                 }
@@ -391,7 +393,7 @@ def policy_edit_tab():
                 _, col2, _ = st.columns([1, 1, 1])
 
                 with col2:  # Use the middle column
-                    back_to_main = st.button("Back to Main", use_container_width=True)
+                    back_to_main = st.button("Back", use_container_width=True)
                 
                 
                 if back_to_main:
@@ -548,7 +550,7 @@ def policy_edit_tab():
                 # Center the back button
                 _, col, _ = st.columns([1, 1, 1])
                 with col:
-                    back_to_main = st.button("Back to Main", use_container_width=True)
+                    back_to_main = st.button("Back", use_container_width=True)
 
                 if back_to_main:
                     st.session_state.policy_edit_page = "main"

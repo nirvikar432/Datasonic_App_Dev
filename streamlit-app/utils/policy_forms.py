@@ -359,6 +359,12 @@ def policy_cancel_form(defaults=None):
             except Exception:
                 return None
 
+        def to_float(val):
+            try:
+                return float(val)
+            except Exception:
+                return 0.0
+            
         form_data = {
             "CUST_ID": to_int(cust_id),
             "EXECUTIVE": executive,
@@ -376,7 +382,7 @@ def policy_cancel_form(defaults=None):
             "SUM_INSURED": sum_insured,
             "POL_ISSUE_DATE": pol_issue_date,
             "PREMIUM2": int(premium2) if premium2 else 0,
-            "ORIGINAL_PREMIUM": original_premium,
+            "ORIGINAL_PREMIUM": int(original_premium) if original_premium else 0,
             "DRV_DOB": drv_dob,
             "DRV_DLI": drv_dli,
             "VEH_SEATS": veh_seats,
@@ -401,7 +407,7 @@ def policy_cancel_form(defaults=None):
                 return form_data, False, back
             
             # Validate return premium does not exceed original premium
-            if premium2 > original_premium:
+            if int(premium2) > int(original_premium):
                 st.error("⚠️ Return Premium cannot exceed the original premium.")
                 return form_data, False, back
             
@@ -465,8 +471,7 @@ def policy_mta_form(defaults=None):
         st.subheader("Policy Details")
         col16, col17, col18 = st.columns(3)
         policy_no = col16.text_input("POLICY NO", value=defaults.get("POLICY_NO", ""), disabled=True)
-        # policytype = col17.text_input("POLICY TYPE", value=defaults.get("POLICYTYPE", ""))
-        policytype = col17.selectbox("POLICY TYPE", options=["TP", "COMP"], index=0)
+        policytype = col17.selectbox("POLICY TYPE *", options=["TP", "COMP"], index=0)
         sum_insured = col18.text_input("SUM INSURED", value=str(defaults.get("SUM_INSURED", "")), disabled=False)
 
         col19, col20, col21 = st.columns(3)
@@ -484,7 +489,7 @@ def policy_mta_form(defaults=None):
         # Premium Section
         st.subheader("Premium")
         col22, col23, col24 = st.columns(3)
-        premium2 = col22.text_input("PREMIUM", value=str(defaults.get("PREMIUM2", "")))
+        premium2 = col22.text_input("PREMIUM *", value=str(defaults.get("PREMIUM2", "")))
 
         submit = st.form_submit_button("Submit MTA")
         back = st.form_submit_button("Back")
@@ -645,8 +650,8 @@ def policy_renewal_form(defaults=None):
 
         # Calculate new dates (add 1 year)
         if (original_expiry_date > datetime.today()):
-            new_eff_date = original_eff_date.replace(year=original_expiry_date.year + 1)
-            new_expiry_date = original_expiry_date.replace(year=new_eff_date.year + 1)
+            new_eff_date = original_eff_date.replace(year=original_eff_date.year + 1)
+            new_expiry_date = original_expiry_date.replace(year=original_expiry_date.year + 1)
         else:
             new_eff_date = date.today()
             new_expiry_date = new_eff_date.replace(year=new_eff_date.year + 1)

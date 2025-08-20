@@ -1,9 +1,14 @@
 import streamlit as st
 from policy_tabs import policy_tab
 from claims_tabs import claims_tab
+from auto_loader import clear_session_state
+
 
 def submission_tab():
+
     st.header("View Policies and Claims") 
+    st.markdown("<br>", unsafe_allow_html=True)
+
     
     # Create two columns for the buttons
     col1,col2 = st.columns(2)
@@ -43,5 +48,14 @@ def submission_tab():
     # Display the selected view
     if st.session_state.submission_view == "policy":
         policy_tab()
+        # Back button for policy view
+        if st.button("Back", key="back_from_policy", type="secondary"):
+            st.session_state.submission_view = None
+            st.rerun()
+            
     elif st.session_state.submission_view == "claims":
         claims_tab()
+        # Back button for claims view
+        if st.button("Back", key="back_from_claims", type="secondary"):
+            st.session_state.submission_view = None
+            st.rerun()

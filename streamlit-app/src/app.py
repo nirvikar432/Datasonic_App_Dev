@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+import base64
 
 # Add the utils directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
@@ -11,9 +12,10 @@ from submission import submission_tab
 from edit_tabs import new_submission_tab
 from charts_tab import charts_tab
 from toba import toba_tab
+from computer_Vision import computer_Vision
 
 
-# --- Custom Theme ---
+# --- Custom Theme ---  
 # from theme import set_custom_theme
 
 # set_custom_theme()
@@ -21,11 +23,13 @@ from toba import toba_tab
 
 
 st.markdown("""
-    <style>
-       
+    <style>           
+            
         .block-container {
             padding-top: 0rem;
         }
+            
+    
         header {visibility: hidden;}
             padding-bottom: 0rem;
         }
@@ -80,6 +84,74 @@ st.markdown("""
             from {opacity: 0;}
             to {opacity: 1;}
         }
+        /* Footer Styles */
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(0deg, rgba(13, 121, 133, 0.88) 0.01%, rgba(26, 44, 71, 0.88) 32.36%, #1A2C47 108.63%);
+            color: white;
+            text-align: center;
+            padding: 1px 0;
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .footer-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        
+        .footer-text {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+        }
+            
+        .footer-center {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 0 20px;
+        }
+        
+        .footer-right {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        /* Responsive footer */
+        @media (max-width: 768px) {
+            .footer-content {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .footer-center {
+                margin: 10px 0;
+            }
+        }
+        
 
     </style>
 """, unsafe_allow_html=True)
@@ -92,6 +164,30 @@ st.set_page_config(
     initial_sidebar_state="auto",
     menu_items=None,
 )
+
+def create_footer():
+    
+    LOGO_IMAGE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media', 'AdroDatasonic.png'))
+    
+    footer_html = f"""
+    <div class="footer">
+        <div class="footer-content">
+            <div class="footer-left">
+                <img class="footer-logo" src="data:image/png;base64,{base64.b64encode(open(LOGO_IMAGE, "rb").read()).decode()}" alt="Datasonic Logo">
+                <div>
+                    <p class="footer-text">AdroDatasonic 3.0</p>
+                </div>
+            </div>
+               © 2025 ADROSONIC®
+        </div>
+    </div>
+    """
+    
+    st.markdown(footer_html, unsafe_allow_html=True)
+
+
+
+
 
 def main():
     import streamlit as st
@@ -156,7 +252,9 @@ def main():
     )
     #add an icon with the text "Datasonic" in the top left corner
     # st.title("Policy and Claims Management")
-    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Analytics"])
+    # tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Analytics"])
+
+    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "AutoAssure"])
 
     with tabs[0]:
         submission_tab()
@@ -165,8 +263,10 @@ def main():
     with tabs[2]:
         toba_tab()
     with tabs[3]:
-        charts_tab()
-
+        computer_Vision()
+    #     charts_tab()
+    # Add footer at the bottom
+    create_footer()
 
 if __name__ == "__main__":
     main()

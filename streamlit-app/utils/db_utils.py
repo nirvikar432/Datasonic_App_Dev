@@ -568,3 +568,40 @@ def insert_insurer(insurer_data):
         if conn:
             cursor.close()
             conn.close()
+
+
+
+def insert_upload_document(document_data):
+    """Insert document upload record into UploadDocument table"""
+    conn = None
+
+    try:        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO document
+        (Hash, Unique_File_Name, Original_File_Name, GUID, JSON, Type, Transaction_Type, Reference_Number, Blob_Link, UploadDate, ProcessingStatus)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        
+        cursor.execute(insert_query, (
+            document_data["Hash"],
+            document_data["Unique_File_Name"],
+            document_data["Original_File_Name"],
+            document_data["GUID"],
+            document_data["JSON"],
+            document_data["Type"],
+            document_data["Transaction_Type"],
+            document_data["Reference_Number"],
+            document_data["Blob_Link"],
+            document_data["UploadDate"],
+            document_data["ProcessingStatus"]
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        raise Exception(f"Database insert failed: {e}")

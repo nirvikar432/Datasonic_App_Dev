@@ -70,13 +70,15 @@ def toba_tab():
         # Working on upload status
         with col3:
             st.markdown("##### Upload TOBA")
+            st.markdown("<br>", unsafe_allow_html=True)
+
             if st.button("Upload", use_container_width=True, type="primary", key="toba_upload_btn"):
                 st.session_state.toba_page = "upload_toba"
                 st.rerun()
 
-            if st.button("Sync", use_container_width=True):
-                st.session_state.toba_page = "sync_toba"
-                st.rerun()
+            # if st.button("Sync", use_container_width=True):
+            #     st.session_state.toba_page = "sync_toba"
+            #     st.rerun()
 
     elif st.session_state.toba_page == "form":
         entry_type = st.session_state.toba_entry_type
@@ -113,7 +115,7 @@ def toba_tab():
                 with col2:
                     view_all = st.button("View All Brokers")
                 with col3:
-                    back_to_main = st.button("Back to Main")
+                    back_to_main = st.button("Back")
                 
                 if add_another:
                     st.session_state.show_broker_summary = False
@@ -165,7 +167,7 @@ def toba_tab():
                 with col2:
                     view_all = st.button("View All Insurers")
                 with col3:
-                    back_to_main = st.button("Back to Main")
+                    back_to_main = st.button("Back")
                 
                 if add_another:
                     st.session_state.show_insurer_summary = False
@@ -218,7 +220,7 @@ def toba_tab():
         except Exception as e:
             st.error(f"Failed to fetch brokers: {e}")
         
-        if st.button("Back to Main"):
+        if st.button("Back"):
             st.session_state.toba_page = "main"
             st.rerun()
     ###
@@ -294,7 +296,7 @@ def toba_tab():
                 #         # Show participation chart for this facility
                 #         if len(facility_display_df) > 1:
                 #             st.bar_chart(facility_display_df.set_index('Insurer_ID')['Participation'])
-                if st.button("Back to Main"):
+                if st.button("Back"):
                     st.session_state.toba_page = "main"
                     st.rerun()
             else:

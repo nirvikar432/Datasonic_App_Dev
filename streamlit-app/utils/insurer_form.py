@@ -71,6 +71,8 @@ def insurer_form(defaults=None):
     
     # Facility Details Section (outside the main form)
     st.subheader("Facility Information")
+    st.caption("Fields marked with * are mandatory")
+
     col2, col3, col1, col4 = st.columns(4)
 
     # with col1:
@@ -100,7 +102,7 @@ def insurer_form(defaults=None):
                                     help="Number of insurers in this facility")
     
     with col4:
-        longevity_years = st.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
+        longevity_years = st.number_input("Longevity (Years) *", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
 
 
         
@@ -227,7 +229,9 @@ def insurer_form(defaults=None):
             # Validate facility information
             mandatory_facility_fields = [
                 ("Facility Name", facility_name),
-                ("Group Size", str(group_size))
+                ("Group Size", str(group_size)),
+                ("Date of Onboarding", date_of_onboarding),
+                ("Longevity (Years)", longevity_years)
             ]
             missing_facility = [name for name, val in mandatory_facility_fields if not val or not str(val).strip()]
             
