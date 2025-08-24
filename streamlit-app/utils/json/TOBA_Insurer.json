@@ -1,13 +1,13 @@
 {
 "Type": "Insurer",
-  "Date_Of_Onboarding": "2024-07-25",
   "Facility_ID": "FAC001",
   "Facility_Name": "Alpha Facility",
   "Group_Size": 2,
-"Longevity_Years": 5,
   "insurers": [
     {
       "Insurer_Name": "InsureCo Ltd",
+      "Date_Of_Onboarding": "2025-07-25",
+      "Longevity_Years": 5,
       "Participation": 60.0,
       "FCA_Registration_Number": "FCA123456",
       "Insurer_Type_Index": 0,
@@ -15,6 +15,8 @@
     },
     {
       "Insurer_Name": "Secure Insurance",
+      "Date_Of_Onboarding": "2024-07-25",
+      "Longevity_Years": 2,
       "Participation": 40.0,
       "FCA_Registration_Number": "FCA654321",
       "Insurer_Type_Index": 1,

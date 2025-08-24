@@ -73,7 +73,8 @@ def insurer_form(defaults=None):
     st.subheader("Carrier Information")
     st.caption("Fields marked with * are mandatory")
 
-    col2, col3, col1, col4 = st.columns(4)
+    # col2, col3, col1, col4 = st.columns(4)
+    col2, col3 = st.columns(2)
 
     # with col1:
         # facility_id = st.text_input("Facility ID *", value=defaults.get("Facility_ID", ""),
@@ -85,11 +86,11 @@ def insurer_form(defaults=None):
         #         st.warning(f"⚠️ Facility ID '{facility_id}' already exists!")
         #     else:
         #         st.success(f"✅ Facility ID '{facility_id}' is available")
-    with col1:
-        date_of_onboarding = st.date_input(
-                "Date of Onboarding *", 
-                value=defaults.get("Date_Of_Onboarding", date.today())
-            )
+    # with col1:
+    #     date_of_onboarding = st.date_input(
+    #             "Date of Onboarding *", 
+    #             value=defaults.get("Date_Of_Onboarding", date.today())
+    #         )
     with col2:
         facility_name = st.text_input("Carrier Name *", value=defaults.get("Facility_Name", ""),
                                      key="facility_name_input")
@@ -101,8 +102,8 @@ def insurer_form(defaults=None):
                                     key="group_size_input",
                                     help="Number of insurers in this facility")
     
-    with col4:
-        longevity_years = st.number_input("Longevity (Years) *", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
+    # with col4:
+    #     longevity_years = st.number_input("Longevity (Years) *", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
 
 
         
@@ -139,7 +140,19 @@ def insurer_form(defaults=None):
                 value=current_insurer.get("Insurer_Name", ""),
                 key=f"insurer_name_{i}"
             )
-            
+            col_onb, col_lon = st.columns(2)
+
+            date_of_onboarding = col_onb.date_input(
+                "Date of Onboarding *", 
+                value=current_insurer.get("Date_Of_Onboarding", date.today()),
+                key=f"date_of_onboarding_{i}"
+            )
+
+            longevity_years = col_lon.number_input("Longevity (Years) *", value=int(current_insurer.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years_{i}")
+
+
+
+
             participation = col_participation.number_input(
                 f"Participation % *", 
                 value=float(current_insurer.get("Participation", 0.0)), 
@@ -185,7 +198,8 @@ def insurer_form(defaults=None):
                 "Participation": participation,
                 "FCA_Registration_Number": fca_registration,
                 "Insurer_Type": insurer_type,
-                # "Longevity_Years": longevity_years,
+                "Date_Of_Onboarding": date_of_onboarding,
+                "Longevity_Years": longevity_years,
                 "Delegated_Authority": delegated_authority,
                 "Status": "Active" if date_of_onboarding and (date_of_onboarding + timedelta(days=longevity_years * 365)) > date.today() else "Completed",
                 "Date_Of_Expiry": (date_of_onboarding + timedelta(days=longevity_years * 365)).strftime("%Y-%m-%d") if date_of_onboarding else None,
@@ -215,10 +229,10 @@ def insurer_form(defaults=None):
         
         # Get facility data from session state inputs
         form_data = {
-            "Date_Of_Onboarding": date_of_onboarding,
+            # "Date_Of_Onboarding": date_of_onboarding,
             "Facility_ID": generate_facility_id(),
             "Facility_Name": facility_name,
-            "Longevity_Years": longevity_years,
+            # "Longevity_Years": longevity_years,
             "Group_Size": group_size,
             "insurers": insurers_data,
             "Total_Participation": total_participation
@@ -332,8 +346,8 @@ def insurer_summary_display(insurer_data):
         st.write(f"**Carrier ID:** {insurer_data['Facility_ID']}")
         st.write(f"**Carrier Name:** {insurer_data['Facility_Name']}")
         st.write(f"**Group Size:** {insurer_data['Group_Size']}")
-        st.write(f"**Date of Onboarding:** {insurer_data['Date_Of_Onboarding']}")
-        st.write(f"**Longevity (Years):** {insurer_data['Longevity_Years']}")
+        # st.write(f"**Date of Onboarding:** {insurer_data['Date_Of_Onboarding']}")
+        # st.write(f"**Longevity (Years):** {insurer_data['Longevity_Years']}")
 
         st.write(f"**Total Participation:** {insurer_data.get('Total_Participation', 0):.2f}%")
     
@@ -351,6 +365,8 @@ def insurer_summary_display(insurer_data):
             st.markdown(f"**Insurer {i+1}:**")
             st.write(f"  • ID: {insurer['Insurer_ID']}")
             st.write(f"  • Name: {insurer['Insurer_Name']}")
+            st.write(f"  • Date of Onboarding: {insurer['Date_Of_Onboarding']}")
+            st.write(f"  • Longevity (Years): {insurer['Longevity_Years']}")
             st.write(f"  • Participation: {insurer['Participation']:.2f}%")
             st.write(f"  • FCA Registration Number: {insurer['FCA_Registration_Number']}")
             st.write(f"  • Insurer Type: {insurer['Insurer_Type']}")

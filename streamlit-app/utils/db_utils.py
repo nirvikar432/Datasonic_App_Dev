@@ -2,6 +2,9 @@ from datetime import time
 import pyodbc
 import streamlit as st
 import time
+import traceback
+import psutil
+import uuid
 
 def get_db_connection():
  
@@ -36,20 +39,61 @@ def fetch_data(query):
     return results
 
 def insert_policy(policy_data):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    columns = ', '.join(policy_data.keys())
-    placeholders = ', '.join(['?'] * len(policy_data))
-    #     # Add debug logging
-    # print(f"Inserting PREMIUM2: {policy_data.get('PREMIUM2')} (type: {type(policy_data.get('PREMIUM2'))})")
-    # print(f"Inserting SUM_INSURED: {policy_data.get('SUM_INSURED')} (type: {type(policy_data.get('SUM_INSURED'))})")
-    sql = f"INSERT INTO New_Policy ({columns}) VALUES ({placeholders})"
+
+    """Insert policy with logging"""
+    start_time = time.time()
+    correlation_id = str(uuid.uuid4())
+    
     try:
+        log_app_event(
+            log_level="INFO",
+            message="Policy insertion started",
+            module_name="Database",
+            action_type="INSERT_START",
+            function_name="insert_policy",
+            reference_type="POLICY",
+            reference_number=policy_data.get("POLICY_NO"),
+            correlation_id=correlation_id
+        )
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        columns = ', '.join(policy_data.keys())
+        placeholders = ', '.join(['?'] * len(policy_data))
+        #     # Add debug logging
+        # print(f"Inserting PREMIUM2: {policy_data.get('PREMIUM2')} (type: {type(policy_data.get('PREMIUM2'))})")
+        # print(f"Inserting SUM_INSURED: {policy_data.get('SUM_INSURED')} (type: {type(policy_data.get('SUM_INSURED'))})")
+        sql = f"INSERT INTO New_Policy ({columns}) VALUES ({placeholders})"
+        # try:
         cursor.execute(sql, list(policy_data.values()))
+        rows_affected = cursor.rowcount
         conn.commit()
-    finally:
-        cursor.close()
-        conn.close()
+        execution_time = int((time.time() - start_time) * 1000)
+        log_database_operation(
+            operation="INSERT",
+            table_name="New_Policy",
+            rows_affected=rows_affected,
+            execution_time_ms=execution_time,
+            reference_type="POLICY",
+            reference_number=policy_data.get("POLICY_NO"),
+            transaction_type=policy_data.get("TransactionType"),
+            correlation_id=correlation_id
+        )
+        
+        return True
+    except Exception as e:
+        log_error(
+            error=e,
+            module_name="Database",
+            function_name="insert_policy",
+            reference_type="POLICY",
+            reference_number=policy_data.get("POLICY_NO"),
+            correlation_id=correlation_id
+        )
+        raise
+
+        # finally:
+        #     cursor.close()
+        #     conn.close()
 
 # def update_policy(policy_no, update_fields):
 #     conn = get_db_connection()
@@ -527,12 +571,12 @@ def insert_insurer(insurer_data):
                 insurer.get("Insurer_ID"),
                 insurer.get("Insurer_Name"),
                 insurer.get("Participation"),
-                insurer_data.get("Date_Of_Onboarding"),
+                insurer.get("Date_Of_Onboarding"),
                 insurer.get("FCA_Registration_Number"),
                 insurer.get("Insurer_Type"),
                 insurer.get("Delegated_Authority"),
                 1 if insurer.get("Insurer_ID") == lead_insurer_id else 0,
-                insurer_data.get("Longevity_Years", 0),  # Default to 0 if not provided
+                insurer.get("Longevity_Years", 0),  # Default to 0 if not provided
                 insurer.get("Status", "Active"),  # Default to Active if not provided
                 insurer.get("Date_Of_Expiry", None)  # Default to None if not provided
 
@@ -575,6 +619,9 @@ def insert_insurer(insurer_data):
 
 
 def insert_upload_document(document_data):
+    """Insert document with logging"""
+    start_time = time.time()
+    correlation_id = str(uuid.uuid4())
     """Insert document upload record into UploadDocument table"""
     conn = None
 
@@ -601,13 +648,37 @@ def insert_upload_document(document_data):
             document_data["UploadDate"],
             document_data["ProcessingStatus"]
         ))
+        rows_affected = cursor.rowcount
         
         conn.commit()
         cursor.close()
-        conn.close()
+        execution_time = int((time.time() - start_time) * 1000)
+        log_document_operation(
+            action_type="DOCUMENT_INSERTED",
+            document_info={
+                'file_name': document_data.get('Original_File_Name'),
+                'file_size_kb': None,  # Calculate if available
+                'file_hash': document_data.get('Hash'),
+                'blob_url': document_data.get('Blob_Link'),
+                'guid': document_data.get('GUID')
+            },
+            reference_type=document_data.get('Type'),
+            reference_number=document_data.get('Reference_Number'),
+            correlation_id=correlation_id,
+            execution_time_ms=execution_time
+        )
         
+        return True
+
     except Exception as e:
-        raise Exception(f"Database insert failed: {e}")
+        log_error(
+            error=e,
+            module_name="Document_Management",
+            function_name="insert_upload_document",
+            document_guid=document_data.get('GUID'),
+            correlation_id=correlation_id
+        )
+        raise
     
 
 # def update_document_unique_id(guid_string, unique_id):
@@ -705,4 +776,170 @@ def update_document_unique_id(guid_string, unique_id):
         if conn:
             cursor.close()
             conn.close()
+
+
+
+
+# Add these logging functions at the end of the file
+
+def log_app_event(
+    log_level="INFO",
+    message="",
+    module_name="",
+    action_type="",
+    function_name="",
+    user_id=None,
+    reference_type=None,
+    reference_number=None,
+    document_guid=None,
+    transaction_type=None,
+    file_name=None,
+    file_size_kb=None,
+    file_hash=None,
+    blob_url=None,
+    execution_time_ms=None,
+    database_operation=None,
+    table_name=None,
+    rows_affected=None,
+    api_endpoint=None,
+    api_response_code=None,
+    api_response_time_ms=None,
+    error_code=None,
+    stack_trace=None,
+    additional_data=None,
+    correlation_id=None
+):
+    """Log application events to the database"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Get system metrics
+        try:
+            memory_usage = psutil.virtual_memory().percent
+            cpu_usage = psutil.cpu_percent()
+        except:
+            memory_usage = None
+            cpu_usage = None
+        
+        # Get user context from session state if available
+        session_id = None
+        try:
+            import streamlit as st
+            session_id = getattr(st.session_state, 'session_id', None)
+        except:
+            pass
+        
+        insert_query = """
+        INSERT INTO App_Logs (
+            Log_Level, Log_Message, Module_Name, Action_Type, Function_Name,
+            User_ID, Session_ID, Reference_Type, Reference_Number, Document_GUID,
+            Transaction_Type, File_Name, File_Size_KB, File_Hash, Blob_URL,
+            Execution_Time_MS, Memory_Usage_MB, CPU_Usage_Percent,
+            Database_Operation, Table_Name, Rows_Affected,
+            API_Endpoint, API_Response_Code, API_Response_Time_MS,
+            Error_Code, Stack_Trace, Additional_Data, Correlation_ID
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        
+        cursor.execute(insert_query, (
+            log_level, message, module_name, action_type, function_name,
+            user_id, session_id, reference_type, reference_number, document_guid,
+            transaction_type, file_name, file_size_kb, file_hash, blob_url,
+            execution_time_ms, memory_usage, cpu_usage,
+            database_operation, table_name, rows_affected,
+            api_endpoint, api_response_code, api_response_time_ms,
+            error_code, stack_trace, json.dumps(additional_data) if additional_data else None,
+            correlation_id
+        ))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Failed to log to database: {e}")
+        # Fallback to file logging
+        try:
+            with open("app_logs_fallback.log", "a") as f:
+                f.write(f"{datetime.now()} - {log_level} - {message}\n")
+        except:
+            pass
+        return False
+    finally:
+        if conn:
+            try:
+                cursor.close()
+                conn.close()
+            except:
+                pass
+
+def log_performance(function_name, execution_time_ms, **kwargs):
+    """Log performance metrics"""
+    return log_app_event(
+        log_level="INFO",
+        message=f"Performance: {function_name} executed in {execution_time_ms}ms",
+        module_name="Performance",
+        action_type="PERFORMANCE",
+        function_name=function_name,
+        execution_time_ms=execution_time_ms,
+        **kwargs
+    )
+
+def log_error(error, module_name, function_name, **kwargs):
+    """Log errors with stack trace"""
+    return log_app_event(
+        log_level="ERROR",
+        message=str(error),
+        module_name=module_name,
+        action_type="ERROR",
+        function_name=function_name,
+        error_code=type(error).__name__,
+        stack_trace=traceback.format_exc(),
+        **kwargs
+    )
+
+def log_document_operation(action_type, document_info, **kwargs):
+    """Log document-related operations"""
+    return log_app_event(
+        log_level="INFO",
+        message=f"Document {action_type}: {document_info.get('file_name', 'Unknown')}",
+        module_name="Document_Management",
+        action_type=action_type,
+        file_name=document_info.get('file_name'),
+        file_size_kb=document_info.get('file_size_kb'),
+        file_hash=document_info.get('file_hash'),
+        blob_url=document_info.get('blob_url'),
+        document_guid=document_info.get('guid'),
+        **kwargs
+    )
+
+def log_database_operation(operation, table_name, rows_affected, execution_time_ms, **kwargs):
+    """Log database operations"""
+    return log_app_event(
+        log_level="INFO",
+        message=f"Database {operation} on {table_name}: {rows_affected} rows affected",
+        module_name="Database",
+        action_type="DATABASE",
+        database_operation=operation,
+        table_name=table_name,
+        rows_affected=rows_affected,
+        execution_time_ms=execution_time_ms,
+        **kwargs
+    )
+
+# Update existing functions to include logging
+def log_app_activity(user_action, details=None):
+    """Simple activity logging function"""
+    return log_app_event(
+        log_level="INFO",
+        message=f"User activity: {user_action}",
+        module_name="User_Activity",
+        action_type="USER_ACTION",
+        function_name="log_app_activity",
+        additional_data=details
+    )
 
