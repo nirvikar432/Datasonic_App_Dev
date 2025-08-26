@@ -13,6 +13,7 @@ from edit_tabs import new_submission_tab
 from charts_tab import charts_tab
 from toba import toba_tab
 from computer_Vision import computer_Vision
+from log_viewer import log_viewer_tab
 
 
 # --- Custom Theme ---  
@@ -254,7 +255,7 @@ def main():
     # st.title("Policy and Claims Management")
     # tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Analytics"])
 
-    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Vision-AI"])
+    tabs = st.tabs(["View", "New Submission", "TOBA On-boarding", "Vision-AI", "Log Viewer"])
 
     with tabs[0]:
         submission_tab()
@@ -264,6 +265,8 @@ def main():
         toba_tab()
     with tabs[3]:
         computer_Vision()
+    with tabs[4]:
+        log_viewer_tab()
     #     charts_tab()
     # Add footer at the bottom
     create_footer()

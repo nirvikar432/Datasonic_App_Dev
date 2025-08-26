@@ -26,6 +26,7 @@ from policy_forms import (
 from db_utils import (
     insert_policy, fetch_data, insert_claim, insert_upload_document, update_document_unique_id
 )
+from db_utils import log_app_event, log_document_operation, log_error, log_performance
 
 
 
@@ -211,208 +212,580 @@ def upload_to_blob(file_path, blob_name, metadata):
 #         raise Exception(f"Error processing document with API: {e}")
 
 
-
-
 def process_multiple_documents_with_api(file_paths, file_names):
     """Send multiple documents to API for processing and return the extracted JSON data"""
+    correlation_id = str(uuid.uuid4())
+    start_time = time.time()
+    
     try:
-        # Prepare the files and data for the API request
+        log_app_event(
+            log_level="INFO",
+            message=f"API call started for {len(file_paths)} documents",
+            module_name="Document_AI",
+            action_type="API_CALL_START",
+            function_name="process_multiple_documents_with_api",
+            api_endpoint=API_URL,
+            correlation_id=correlation_id
+        )
+        
+        # Validate inputs
+        if not file_paths or not file_names:
+            raise ValueError("file_paths and file_names cannot be empty")
+        
+        if len(file_paths) != len(file_names):
+            raise ValueError("file_paths and file_names must have the same length")
+        
+        # Prepare the files for the API request
         files = {}
         
         # Add each file to the files dictionary with a different key
         for i, (file_path, file_name) in enumerate(zip(file_paths, file_names)):
-            with open(file_path, 'rb') as f:
-                # Create a unique key for each file (file1, file2, etc.)
-                files[f'file{i+1}'] = (file_name, f.read(), 'application/octet-stream')
+            try:
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                    if not file_content:
+                        raise ValueError(f"File {file_path} is empty")
+                    
+                    # Create a unique key for each file (file1, file2, etc.)
+                    files[f'file{i+1}'] = (file_name, file_content, 'application/octet-stream')
+            except Exception as file_error:
+                raise Exception(f"Error reading file {file_path}: {file_error}")
+        
+        if not files:
+            raise ValueError("No valid files to process")
         
         params = {
             'code': API_CODE
         }
         
+        # Validate API configuration
+        if not API_URL:
+            raise ValueError("API_URL is not configured")
+        if not API_CODE:
+            raise ValueError("API_CODE is not configured")
+        
         # Make the API request
-        response = requests.post(API_URL, files=files, params=params)
+        print(f"DEBUG: Making API request to {API_URL} with {len(files)} files")
+        response = requests.post(API_URL, files=files, params=params, timeout=300)
+        
+        api_time = int((time.time() - start_time) * 1000)
+        
+        # Log API completion
+        log_app_event(
+            log_level="INFO" if response.status_code == 200 else "ERROR",
+            message=f"API call completed with status {response.status_code}",
+            module_name="Document_AI",
+            action_type="API_CALL_COMPLETE",
+            api_endpoint=API_URL,
+            api_response_code=response.status_code,
+            api_response_time_ms=api_time,
+            correlation_id=correlation_id
+        )
         
         # Check if the request was successful
         if response.status_code == 200:
-            return response.json()
+            try:
+                result = response.json()
+                print(f"DEBUG: API response received: {type(result)}")
+                return result
+            except ValueError as json_error:
+                raise Exception(f"Invalid JSON response from API: {json_error}")
         else:
-            raise Exception(f"API Error: {response.status_code} - {response.text}")
+            error_msg = f"API Error: {response.status_code} - {response.text}"
+            print(f"DEBUG: {error_msg}")
+            raise Exception(error_msg)
             
+    except requests.exceptions.Timeout:
+        error_msg = "API request timed out after 300 seconds"
+        log_error(
+            error=Exception(error_msg),
+            module_name="Document_AI",
+            function_name="process_multiple_documents_with_api",
+            api_endpoint=API_URL,
+            correlation_id=correlation_id,
+            additional_data={"timeout": 300}
+        )
+        raise Exception(error_msg)
+        
+    except requests.exceptions.ConnectionError:
+        error_msg = f"Cannot connect to API at {API_URL}"
+        log_error(
+            error=Exception(error_msg),
+            module_name="Document_AI",
+            function_name="process_multiple_documents_with_api",
+            api_endpoint=API_URL,
+            correlation_id=correlation_id
+        )
+        raise Exception(error_msg)
+        
     except Exception as e:
+        print(f"DEBUG: Exception in process_multiple_documents_with_api: {e}")
+        log_error(
+            error=e,
+            module_name="Document_AI",
+            function_name="process_multiple_documents_with_api",
+            api_endpoint=API_URL,
+            correlation_id=correlation_id,
+            additional_data={
+                "file_count": len(file_paths) if file_paths else 0,
+                "file_names": file_names if file_names else []
+            }
+        )
+        # Re-raise the exception instead of swallowing it
         raise Exception(f"Error processing documents with API: {e}")
 
+# def process_multiple_documents_with_api(file_paths, file_names):
+#     """Send multiple documents to API for processing and return the extracted JSON data"""
+#     try:
+#         # Prepare the files and data for the API request
+#         files = {}
+        
+#         # Add each file to the files dictionary with a different key
+#         for i, (file_path, file_name) in enumerate(zip(file_paths, file_names)):
+#             with open(file_path, 'rb') as f:
+#                 # Create a unique key for each file (file1, file2, etc.)
+#                 files[f'file{i+1}'] = (file_name, f.read(), 'application/octet-stream')
+        
+#         params = {
+#             'code': API_CODE
+#         }
+        
+#         # Make the API request
+#         response = requests.post(API_URL, files=files, params=params)
+        
+#         # Check if the request was successful
+#         if response.status_code == 200:
+#             return response.json()
+#         else:
+#             raise Exception(f"API Error: {response.status_code} - {response.text}")
+            
+#     except Exception as e:
+#         raise Exception(f"Error processing documents with API: {e}")
+
+# def upload_document():
+#     st.header("Document Upload")
+
+#     # Check if there was a successful submission
+#     if "form_submitted" in st.session_state and st.session_state.form_submitted:
+#         # Clear the flag and all related data
+#         st.session_state.form_submitted = False
+#         if "json_data" in st.session_state:
+#             del st.session_state.json_data
+#         if "document_guids" in st.session_state:
+#             del st.session_state.document_guids
+#         st.success("Form submitted successfully!")
+#         st.rerun()
+
+#     with st.form("document_upload_form"):
+#         uploaded_files = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
+#         submit = st.form_submit_button("Upload Document")
+#         back = st.form_submit_button("Back")
+        
+#         if submit:
+#             if not uploaded_files or len(uploaded_files) == 0:
+#                 st.error("Please upload a file.")
+#             else:
+#                 try:
+#                     with st.spinner("Uploading documents..."):
+#                         # Create temp files for all uploaded files
+#                         temp_file_paths = []
+#                         file_names = []
+#                         file_hashes = []
+#                         guids = []
+#                         document_records = []
+                        
+#                         # Process each file in the list
+#                         for i, uploaded_file in enumerate(uploaded_files):
+#                             # Save uploaded file to temp location
+#                             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+#                                 temp_file.write(uploaded_file.read())
+#                                 temp_file_paths.append(temp_file.name)
+                            
+#                             # Generate unique identifier for each file
+#                             # Updated: Insert datetime before file extension
+#                             file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
+#                             file_extension = os.path.splitext(uploaded_file.name)[1]
+#                             # current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
+#                             original_filename = f"{file_name_without_ext}{file_extension}"
+
+#                             guid = str(uuid.uuid4())
+#                             guids.append(guid)
+#                             file_hash = compute_file_hash(temp_file_paths[-1])
+#                             file_hashes.append(file_hash)
+#                             file_names.append(uploaded_file.name)
+
+#                             # Create unique filename with timestamp
+#                             # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
+#                             unique_filename = f"{timestamp}_{file_hash[:8]}_{guid[:4]}{file_extension}"
+
+#                             # Upload to Azure Blob Storage
+#                             metadata = {
+#                                 "guid": guid,
+#                                 "original_filename": original_filename,
+#                                 "Unique_filename": unique_filename,
+#                                 "file_hash": file_hash,
+#                                 "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#                             }
+                            
+#                             blob_url = upload_to_blob(
+#                                 file_path=temp_file_paths[-1],
+#                                 blob_name=unique_filename,  # ← NOW uses enhanced filename
+#                                 metadata=metadata
+#                             )
+
+#                             # Prepare document record (without JSON data for now)
+#                             document_record = {
+#                                 "Hash": file_hash,
+#                                 "Unique_File_Name": unique_filename,
+#                                 "Original_File_Name": original_filename,  # Now formatted as filename_20250111_143045.pdf
+#                                 "GUID": guid,
+#                                 "Blob_Link": blob_url,
+#                                 "UploadDate": datetime.now(),
+#                                 # .strftime("%Y-%m-%d %H:%M:%S"),
+#                                 "ProcessingStatus": "Processing"
+#                             }
+#                             document_records.append(document_record)
+
+#                         # Store GUIDs in session state for later use in form submission
+#                         st.session_state.document_guids = guids
+                        
+#                         # Process all files with API together
+#                         st.session_state.json_data = None
+#                         with st.spinner("Extracting data from documents..."):
+#                             # process_multiple_documents_with_api to handle multiple files
+#                             json_data = process_multiple_documents_with_api(
+#                                 file_paths=temp_file_paths,
+#                                 file_names=file_names
+#                             )
+                            
+#                             # Store in session state
+#                             st.session_state.json_data = json_data
+
+#                          # Step 3: Extract Type and Transaction Type from JSON
+#                         document_type = None
+#                         transaction_type = None
+#                         reference_number = None  # NEW: For Policy/Claim linking
+
+
+#                         if "classification" in json_data:
+#                             classification = json_data.get("classification", {})
+#                             document_type = classification.get("category", "")
+#                             transaction_type = classification.get("subcategory", "")
+#                         elif "Type" in json_data:
+#                             transaction_type = json_data.get("Type", "")
+#                             # Map transaction type to document type
+#                             if "Policy" in transaction_type or "Business" in transaction_type:
+#                                 document_type = "policy"
+#                             elif "Claim" in transaction_type:
+#                                 document_type = "claim"
+
+#                         # NEW: Extract reference numbers based on document type
+#                         extracted_fields = json_data.get("extracted_fields", {})
+                        
+#                         if document_type == "policy":
+#                             # For policy documents, extract POLICY_NO
+#                             reference_number = extracted_fields.get("POLICY_NO", None)
+#                         elif document_type == "claim":
+#                             # For claim documents, extract CLAIM_NO
+#                             reference_number = extracted_fields.get("CLAIM_NO", None)
+                        
+#                         # Fallback: Try to extract from top level if not found in extracted_fields
+#                         if not reference_number:
+#                             if document_type == "policy":
+#                                 reference_number = json_data.get("POLICY_NO", None)
+#                             elif document_type == "claim":
+#                                 reference_number = json_data.get("CLAIM_NO", None)
+
+#                         # Step 4: Update document records with JSON data and insert into database
+#                         for i, record in enumerate(document_records):
+#                             record.update({
+#                                 "JSON": json.dumps(json_data),
+#                                 "Type": document_type,
+#                                 "Transaction_Type": transaction_type,
+#                                 "Reference_Number": reference_number,  # NEW: Add reference number Policy_No or Claim_No
+#                                 "ProcessingStatus": "Completed"
+#                             })
+                            
+#                             # Insert into UploadDocument table
+#                             try:
+#                                 insert_upload_document(record)
+#                                 st.success(f"Document {record['Original_File_Name']} logged successfully!")
+#                             except Exception as db_error:
+#                                 st.warning(f"Failed to log document {record['Original_File_Name']}: {db_error}")
+                        
+#                         # Clean up temp files
+#                         for file_path in temp_file_paths:
+#                             os.remove(file_path)
+                        
+#                         st.success(f"{len(uploaded_files)} document(s) uploaded successfully!")
+                        
+#                         display_upload_summary(document_records, json_data)
+
+#                 except Exception as e:
+#                     st.error(f"Upload failed: {e}")
+        
+#         if back:
+#             clear_session_state()
+#             st.session_state.submission_mode = None
+#             if "json_data" in st.session_state:
+#                 del st.session_state.json_data
+#             st.rerun()
+#     return st.session_state.json_data if 'json_data' in st.session_state else None
+
 def upload_document():
-    st.header("Document Upload")
+    correlation_id = str(uuid.uuid4())
+    start_time = time.time()
 
-    # Check if there was a successful submission
-    if "form_submitted" in st.session_state and st.session_state.form_submitted:
-        # Clear the flag and all related data
-        st.session_state.form_submitted = False
-        if "json_data" in st.session_state:
-            del st.session_state.json_data
-        if "document_guids" in st.session_state:
-            del st.session_state.document_guids
-        st.success("Form submitted successfully!")
-        st.rerun()
+    try:
+        log_app_event(
+            log_level="INFO",
+            message="Document upload session started",
+            module_name="Document_Upload",
+            action_type="UPLOAD_START",
+            function_name="upload_document",
+            correlation_id=correlation_id
+        )
 
-    with st.form("document_upload_form"):
-        uploaded_files = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
-        submit = st.form_submit_button("Upload Document")
-        back = st.form_submit_button("Back")
-        
-        if submit:
-            if not uploaded_files or len(uploaded_files) == 0:
-                st.error("Please upload a file.")
-            else:
-                try:
-                    with st.spinner("Uploading documents..."):
-                        # Create temp files for all uploaded files
-                        temp_file_paths = []
-                        file_names = []
-                        file_hashes = []
-                        guids = []
-                        document_records = []
-                        
-                        # Process each file in the list
-                        for i, uploaded_file in enumerate(uploaded_files):
-                            # Save uploaded file to temp location
-                            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                                temp_file.write(uploaded_file.read())
-                                temp_file_paths.append(temp_file.name)
-                            
-                            # Generate unique identifier for each file
-                            # Updated: Insert datetime before file extension
-                            file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
-                            file_extension = os.path.splitext(uploaded_file.name)[1]
-                            # current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
-                            original_filename = f"{file_name_without_ext}{file_extension}"
+        st.header("Document Upload")
 
-                            guid = str(uuid.uuid4())
-                            guids.append(guid)
-                            file_hash = compute_file_hash(temp_file_paths[-1])
-                            file_hashes.append(file_hash)
-                            file_names.append(uploaded_file.name)
-
-                            # Create unique filename with timestamp
-                            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
-                            unique_filename = f"{timestamp}_{file_hash[:8]}_{guid[:4]}{file_extension}"
-
-                            # Upload to Azure Blob Storage
-                            metadata = {
-                                "guid": guid,
-                                "original_filename": original_filename,
-                                "Unique_filename": unique_filename,
-                                "file_hash": file_hash,
-                                "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
-                            
-                            blob_url = upload_to_blob(
-                                file_path=temp_file_paths[-1],
-                                blob_name=unique_filename,  # ← NOW uses enhanced filename
-                                metadata=metadata
-                            )
-
-                            # Prepare document record (without JSON data for now)
-                            document_record = {
-                                "Hash": file_hash,
-                                "Unique_File_Name": unique_filename,
-                                "Original_File_Name": original_filename,  # Now formatted as filename_20250111_143045.pdf
-                                "GUID": guid,
-                                "Blob_Link": blob_url,
-                                "UploadDate": datetime.now(),
-                                # .strftime("%Y-%m-%d %H:%M:%S"),
-                                "ProcessingStatus": "Processing"
-                            }
-                            document_records.append(document_record)
-
-                        # Store GUIDs in session state for later use in form submission
-                        st.session_state.document_guids = guids
-                        
-                        # Process all files with API together
-                        st.session_state.json_data = None
-                        with st.spinner("Extracting data from documents..."):
-                            # process_multiple_documents_with_api to handle multiple files
-                            json_data = process_multiple_documents_with_api(
-                                file_paths=temp_file_paths,
-                                file_names=file_names
-                            )
-                            
-                            # Store in session state
-                            st.session_state.json_data = json_data
-
-                         # Step 3: Extract Type and Transaction Type from JSON
-                        document_type = None
-                        transaction_type = None
-                        reference_number = None  # NEW: For Policy/Claim linking
-
-
-                        if "classification" in json_data:
-                            classification = json_data.get("classification", {})
-                            document_type = classification.get("category", "")
-                            transaction_type = classification.get("subcategory", "")
-                        elif "Type" in json_data:
-                            transaction_type = json_data.get("Type", "")
-                            # Map transaction type to document type
-                            if "Policy" in transaction_type or "Business" in transaction_type:
-                                document_type = "policy"
-                            elif "Claim" in transaction_type:
-                                document_type = "claim"
-
-                        # NEW: Extract reference numbers based on document type
-                        extracted_fields = json_data.get("extracted_fields", {})
-                        
-                        if document_type == "policy":
-                            # For policy documents, extract POLICY_NO
-                            reference_number = extracted_fields.get("POLICY_NO", None)
-                        elif document_type == "claim":
-                            # For claim documents, extract CLAIM_NO
-                            reference_number = extracted_fields.get("CLAIM_NO", None)
-                        
-                        # Fallback: Try to extract from top level if not found in extracted_fields
-                        if not reference_number:
-                            if document_type == "policy":
-                                reference_number = json_data.get("POLICY_NO", None)
-                            elif document_type == "claim":
-                                reference_number = json_data.get("CLAIM_NO", None)
-
-                        # Step 4: Update document records with JSON data and insert into database
-                        for i, record in enumerate(document_records):
-                            record.update({
-                                "JSON": json.dumps(json_data),
-                                "Type": document_type,
-                                "Transaction_Type": transaction_type,
-                                "Reference_Number": reference_number,  # NEW: Add reference number Policy_No or Claim_No
-                                "ProcessingStatus": "Completed"
-                            })
-                            
-                            # Insert into UploadDocument table
-                            try:
-                                insert_upload_document(record)
-                                st.success(f"Document {record['Original_File_Name']} logged successfully!")
-                            except Exception as db_error:
-                                st.warning(f"Failed to log document {record['Original_File_Name']}: {db_error}")
-                        
-                        # Clean up temp files
-                        for file_path in temp_file_paths:
-                            os.remove(file_path)
-                        
-                        st.success(f"{len(uploaded_files)} document(s) uploaded successfully!")
-                        
-                        display_upload_summary(document_records, json_data)
-
-                except Exception as e:
-                    st.error(f"Upload failed: {e}")
-        
-        if back:
-            clear_session_state()
-            st.session_state.submission_mode = None
+        # Check if there was a successful submission
+        if "form_submitted" in st.session_state and st.session_state.form_submitted:
+            st.session_state.form_submitted = False
             if "json_data" in st.session_state:
                 del st.session_state.json_data
+            if "document_guids" in st.session_state:
+                del st.session_state.document_guids
+            st.success("Form submitted successfully!")
             st.rerun()
-    return st.session_state.json_data if 'json_data' in st.session_state else None
 
+        with st.form("document_upload_form"):
+            uploaded_files = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
+            submit = st.form_submit_button("Upload Document")
+            back = st.form_submit_button("Back")
+            
+            if submit:
+                if not uploaded_files or len(uploaded_files) == 0:
+                    st.error("Please upload a file.")
+                else:
+                    try:
+                        upload_start_time = time.time()
 
+                        with st.spinner("Uploading documents..."):
+                            # Initialize collections
+                            temp_file_paths = []
+                            file_names = []
+                            file_hashes = []
+                            guids = []
+                            document_records = []
+                            
+                            # Process each file in the list
+                            for i, uploaded_file in enumerate(uploaded_files):
+                                file_start_time = time.time()
+                                
+                                try:
+                                    # Save uploaded file to temp location
+                                    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                                        temp_file.write(uploaded_file.read())
+                                        temp_file_paths.append(temp_file.name)
+                                    
+                                    # Generate unique identifiers
+                                    file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
+                                    file_extension = os.path.splitext(uploaded_file.name)[1]
+                                    original_filename = f"{file_name_without_ext}{file_extension}"
+
+                                    guid = str(uuid.uuid4())
+                                    guids.append(guid)
+                                    file_hash = compute_file_hash(temp_file_paths[-1])
+                                    file_hashes.append(file_hash)
+                                    file_names.append(uploaded_file.name)
+
+                                    # Create unique filename with timestamp
+                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]
+                                    unique_filename = f"{timestamp}_{file_hash[:8]}_{guid[:4]}{file_extension}"
+
+                                    # Upload to Azure Blob Storage
+                                    metadata = {
+                                        "guid": guid,
+                                        "original_filename": original_filename,
+                                        "unique_filename": unique_filename,
+                                        "file_hash": file_hash,
+                                        "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "file_size": str(uploaded_file.size)
+                                    }
+                                    
+                                    blob_url = upload_to_blob(
+                                        file_path=temp_file_paths[-1],
+                                        blob_name=unique_filename,
+                                        metadata=metadata
+                                    )
+
+                                    # Prepare document record
+                                    document_record = {
+                                        "Hash": file_hash,
+                                        "Unique_File_Name": unique_filename,
+                                        "Original_File_Name": original_filename,
+                                        "GUID": guid,
+                                        "Blob_Link": blob_url,
+                                        "UploadDate": datetime.now(),
+                                        "ProcessingStatus": "Processing"
+                                    }
+                                    document_records.append(document_record)
+                                    
+                                    # FIXED: Log each file upload correctly
+                                    log_document_operation(
+                                        action_type="FILE_UPLOADED",
+                                        document_info={
+                                            'file_name': uploaded_file.name,
+                                            'file_size_kb': uploaded_file.size / 1024,
+                                            'file_hash': file_hash,
+                                            'blob_url': blob_url,
+                                            'guid': guid
+                                        },
+                                        correlation_id=correlation_id,
+                                        execution_time_ms=int((time.time() - file_start_time) * 1000)
+                                    )
+                                    
+                                except Exception as file_error:
+                                    log_error(
+                                        error=file_error,
+                                        module_name="Document_Upload",
+                                        function_name="upload_document",
+                                        correlation_id=correlation_id,
+                                        additional_data={"file_name": uploaded_file.name, "file_index": i}
+                                    )
+                                    st.error(f"Failed to process file {uploaded_file.name}: {file_error}")
+                                    continue
+
+                            # FIXED: Performance logging OUTSIDE the loop
+                            total_upload_time = int((time.time() - upload_start_time) * 1000)
+                            log_performance("upload_multiple_documents", total_upload_time, correlation_id=correlation_id)
+
+                            # Store GUIDs in session state for later use
+                            st.session_state.document_guids = guids
+                            
+                            # Process all files with API together
+                            if temp_file_paths:  # Only if we have successfully processed files
+                                st.session_state.json_data = None
+                                with st.spinner("Extracting data from documents..."):
+                                    try:
+                                        json_data = process_multiple_documents_with_api(
+                                            file_paths=temp_file_paths,
+                                            file_names=file_names
+                                        )
+                                        st.session_state.json_data = json_data
+                                    except Exception as api_error:
+                                        log_error(
+                                            error=api_error,
+                                            module_name="Document_AI",
+                                            function_name="process_multiple_documents_with_api",
+                                            correlation_id=correlation_id
+                                        )
+                                        st.error(f"API processing failed: {api_error}")
+                                        json_data = {"error": "API processing failed"}
+
+                                # Extract document classification
+                                document_type = None
+                                transaction_type = None
+                                reference_number = None
+
+                                if "classification" in json_data:
+                                    classification = json_data.get("classification", {})
+                                    document_type = classification.get("category", "")
+                                    transaction_type = classification.get("subcategory", "")
+                                elif "Type" in json_data:
+                                    transaction_type = json_data.get("Type", "")
+                                    if "Policy" in transaction_type or "Business" in transaction_type:
+                                        document_type = "policy"
+                                    elif "Claim" in transaction_type:
+                                        document_type = "claim"
+
+                                # Extract reference numbers
+                                extracted_fields = json_data.get("extracted_fields", {})
+                                if document_type == "policy":
+                                    reference_number = extracted_fields.get("POLICY_NO", None)
+                                elif document_type == "claim":
+                                    reference_number = extracted_fields.get("CLAIM_NO", None)
+                                
+                                # Fallback extraction
+                                if not reference_number:
+                                    if document_type == "policy":
+                                        reference_number = json_data.get("POLICY_NO", None)
+                                    elif document_type == "claim":
+                                        reference_number = json_data.get("CLAIM_NO", None)
+
+                                # Update document records and insert into database
+                                successful_inserts = 0
+                                for i, record in enumerate(document_records):
+                                    try:
+                                        record.update({
+                                            "JSON": json.dumps(json_data),
+                                            "Type": document_type,
+                                            "Transaction_Type": transaction_type,
+                                            "Reference_Number": reference_number,
+                                            "ProcessingStatus": "Completed"
+                                        })
+                                        
+                                        insert_upload_document(record)
+                                        successful_inserts += 1
+                                        st.success(f"Document {record['Original_File_Name']} logged successfully!")
+                                        
+                                    except Exception as db_error:
+                                        log_error(
+                                            error=db_error,
+                                            module_name="Document_Upload",
+                                            function_name="insert_upload_document",
+                                            correlation_id=correlation_id,
+                                            additional_data={"document_guid": record.get("GUID")}
+                                        )
+                                        st.warning(f"Failed to log document {record['Original_File_Name']}: {db_error}")
+
+                                # Clean up temp files
+                                for file_path in temp_file_paths:
+                                    try:
+                                        os.remove(file_path)
+                                    except Exception as cleanup_error:
+                                        print(f"Warning: Could not remove temp file {file_path}: {cleanup_error}")
+                                
+                                st.success(f"{successful_inserts}/{len(uploaded_files)} document(s) uploaded successfully!")
+                                
+                                if successful_inserts > 0:
+                                    display_upload_summary(document_records, json_data)
+                            else:
+                                st.error("No files were successfully processed.")
+
+                    except Exception as e:
+                        log_error(
+                            error=e,
+                            module_name="Document_Upload",
+                            function_name="upload_document",
+                            correlation_id=correlation_id
+                        )
+                        st.error(f"Upload failed: {e}")
+            
+            if back:
+                clear_session_state()
+                st.session_state.submission_mode = None
+                if "json_data" in st.session_state:
+                    del st.session_state.json_data
+                st.rerun()
+                
+        return st.session_state.json_data if 'json_data' in st.session_state else None
+
+    finally:
+        # FIXED: Always log session end
+        total_session_time = int((time.time() - start_time) * 1000)
+        log_app_event(
+            log_level="INFO",
+            message="Document upload session completed",
+            module_name="Document_Upload",
+            action_type="UPLOAD_END",
+            function_name="upload_document",
+            correlation_id=correlation_id,
+            execution_time_ms=total_session_time
+        )
+
+        
 # Define field templates for each transaction type
 POLICY_NB_FIELDS = ['CUST_ID', 'EXECUTIVE', 'Broker_Name', 'Facility_Name', 'BODY', 'MAKE', 'MODEL', 'USE_OF_VEHICLE', 'MODEL_YEAR', 'CHASSIS_NO', 'REGN', 'POLICY_NO', 'POL_EFF_DATE', 'POL_EXPIRY_DATE', 'SUM_INSURED', 'POL_ISSUE_DATE', 'PREMIUM2', 'DRV_DOB', 'DRV_DLI', 'VEH_SEATS', 'PRODUCT', 'POLICYTYPE', 'NATIONALITY']
 

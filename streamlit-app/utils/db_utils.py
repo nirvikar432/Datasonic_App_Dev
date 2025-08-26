@@ -1,10 +1,11 @@
-from datetime import time
+from datetime import datetime, date
 import pyodbc
 import streamlit as st
 import time
 import traceback
 import psutil
 import uuid
+import json 
 
 def get_db_connection():
  
@@ -43,6 +44,9 @@ def insert_policy(policy_data):
     """Insert policy with logging"""
     start_time = time.time()
     correlation_id = str(uuid.uuid4())
+
+    user_ip = get_user_ip()
+    current_page = get_current_page()
     
     try:
         log_app_event(
@@ -53,7 +57,9 @@ def insert_policy(policy_data):
             function_name="insert_policy",
             reference_type="POLICY",
             reference_number=policy_data.get("POLICY_NO"),
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
+            user_ip_address=user_ip,
+            request_path=current_page, # Now populated
         )
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -76,7 +82,9 @@ def insert_policy(policy_data):
             reference_type="POLICY",
             reference_number=policy_data.get("POLICY_NO"),
             transaction_type=policy_data.get("TransactionType"),
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
+            user_ip_address=user_ip,
+            request_path=current_page
         )
         
         return True
@@ -87,7 +95,9 @@ def insert_policy(policy_data):
             function_name="insert_policy",
             reference_type="POLICY",
             reference_number=policy_data.get("POLICY_NO"),
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
+            user_ip_address=user_ip,
+            request_path=current_page
         )
         raise
 
@@ -345,19 +355,67 @@ def execute_query(query):
     
 def insert_claim(claim_data):
     """Insert new claim into database"""
+    start_time = time.time()
+    correlation_id = str(uuid.uuid4())
+
+    try:
+        log_app_event(
+            log_level="INFO",
+            message="Claim insertion started",
+            module_name="Database",
+            action_type="INSERT_START",
+            function_name="insert_claim",
+            reference_type="CLAIM",
+            reference_number=claim_data.get("CLAIM_NO"),
+            correlation_id=correlation_id
+        )
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor()
     
-    columns = ', '.join(claim_data.keys())
-    placeholders = ', '.join(['?' for _ in claim_data])
-    values = tuple(claim_data.values())
+        columns = ', '.join(claim_data.keys())
+        placeholders = ', '.join(['?' for _ in claim_data])
+        values = tuple(claim_data.values())
     
-    query = f"INSERT INTO New_Claims ({columns}) VALUES ({placeholders})"
-    cursor.execute(query, values)
-    conn.commit()
-    cursor.close()
-    conn.close()
+        query = f"INSERT INTO New_Claims ({columns}) VALUES ({placeholders})"
+        cursor.execute(query, values)
+        rows_affected = cursor.rowcount
+
+        conn.commit()
+        execution_time = int((time.time() - start_time) * 1000)
+
+    # cursor.close()
+    # conn.close()
+        log_database_operation(
+            operation="INSERT",                           
+            table_name="New_Claims",
+            rows_affected=rows_affected,
+            execution_time_ms=execution_time,
+            reference_type="CLAIM",
+            reference_number=claim_data.get("CLAIM_NO"),
+            transaction_type=claim_data.get("TransactionType"),
+            correlation_id=correlation_id
+        )
+
+        return True
+
+    except Exception as e:
+        log_error(
+            error=e,
+            module_name="Database",
+            function_name="insert_claim",
+            reference_type="CLAIM",
+            reference_number=claim_data.get("CLAIM_NO"),
+            correlation_id=correlation_id
+        )
+        raise
+    finally:
+        if conn:
+            try:
+                cursor.close()
+                conn.close()
+            except:
+                pass
 
 # def update_claim(claim_no, update_data):
 #     """Update existing claim in database"""    
@@ -649,10 +707,11 @@ def insert_upload_document(document_data):
             document_data["ProcessingStatus"]
         ))
         rows_affected = cursor.rowcount
-        
         conn.commit()
-        cursor.close()
+        # cursor.close()
+
         execution_time = int((time.time() - start_time) * 1000)
+
         log_document_operation(
             action_type="DOCUMENT_INSERTED",
             document_info={
@@ -789,6 +848,8 @@ def log_app_event(
     action_type="",
     function_name="",
     user_id=None,
+    user_ip_address=None,
+    request_path=None,
     reference_type=None,
     reference_number=None,
     document_guid=None,
@@ -943,3 +1004,34 @@ def log_app_activity(user_action, details=None):
         additional_data=details
     )
 
+
+def get_user_ip():
+    """Get user IP address from Streamlit"""
+    try:
+        # Streamlit doesn't directly expose client IP, but we can try these methods
+        import streamlit as st
+        
+        # Method 1: Check if running behind proxy
+        if hasattr(st, 'get_option'):
+            # This might work in some deployments
+            return st.get_option('server.address') or 'localhost'
+        
+        # Method 2: Use session info if available
+        if hasattr(st.session_state, 'user_ip'):
+            return st.session_state.user_ip
+            
+        # Method 3: Default fallback
+        return 'localhost'
+        
+    except Exception:
+        return 'unknown'
+
+def get_current_page():
+    """Get current page context"""
+    try:
+        # You can track this based on your app structure
+        if hasattr(st.session_state, 'current_tab'):
+            return st.session_state.current_tab
+        return 'unknown_page'
+    except:
+        return 'unknown'
