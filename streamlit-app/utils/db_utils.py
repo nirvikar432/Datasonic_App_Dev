@@ -550,8 +550,8 @@ def insert_broker(broker_data):
         insert_query = """
         INSERT INTO Broker (
             Broker_ID, Broker_Name, Commission, Date_Of_Onboarding,
-            FCA_Registration_Number, Broker_Type, Market_Access, Delegated_Authority, Longevity_Years, Date_Of_Expiry, Status)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            FCA_Registration_Number, Broker_Type, Market_Access, Delegated_Authority, Longevity_Years, Date_Of_Expiry, Status, Submission_Date, GUID)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         values = (
@@ -565,8 +565,9 @@ def insert_broker(broker_data):
             broker_data.get("Delegated_Authority"),
             broker_data.get("Longevity_Years"),
             broker_data.get("Date_Of_Expiry"),
-            broker_data.get("Status", "Active")  # Default to Active if not provided
-            
+            broker_data.get("Status", "Active"),  # Default to Active if not provided
+            broker_data.get("Submission_Date", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            broker_data.get("GUID", None)
         )
         
         cursor.execute(insert_query, values)
@@ -617,8 +618,8 @@ def insert_insurer(insurer_data):
                 INSERT INTO insurer (
                     Facility_ID, Facility_Name, Group_Size, Insurer_ID, Insurer_Name, Participation,
                     Date_Of_Onboarding, FCA_Registration_Number, Insurer_Type, Delegated_Authority, LeadInsurer,
-                    Longevity_Years, Status, Date_Of_Expiry
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    Longevity_Years, Status, Date_Of_Expiry, GUID, Submission_Date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
 
             
@@ -636,8 +637,9 @@ def insert_insurer(insurer_data):
                 1 if insurer.get("Insurer_ID") == lead_insurer_id else 0,
                 insurer.get("Longevity_Years", 0),  # Default to 0 if not provided
                 insurer.get("Status", "Active"),  # Default to Active if not provided
-                insurer.get("Date_Of_Expiry", None)  # Default to None if not provided
-
+                insurer.get("Date_Of_Expiry", None),  # Default to None if not provided
+                insurer.get("GUID", None),  # Default to None if not provided
+                insurer.get("Submission_Date", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
             

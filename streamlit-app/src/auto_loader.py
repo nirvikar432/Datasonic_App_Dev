@@ -13,6 +13,9 @@ import uuid, hashlib, os, tempfile
 import dotenv
 from pathlib import Path
 import requests
+import base64
+from PIL import Image
+import io
 
 # Use absolute import for testing
 from policy_forms import (
@@ -184,6 +187,104 @@ def upload_to_blob(file_path, blob_name, metadata):
             content_settings=ContentSettings(content_type="application/octet-stream"))
 
     return blob_client.url
+
+
+
+
+def display_attachments(attachments):
+    """Display attachments from API response - images and download links for other files"""
+    if not attachments or len(attachments) == 0:
+        return
+    
+    st.subheader("📎 Attachments from Upload")
+    
+    # Group attachments by type
+    images = []
+    documents = []
+    
+    for attachment in attachments:
+        filename = attachment.get("filename", "Unknown file")
+        content_type = attachment.get("content_type", "")
+        data = attachment.get("data", "")
+        
+        if content_type.startswith("image/"):
+            images.append(attachment)
+        else:
+            documents.append(attachment)
+    
+    # Display images
+    if images:
+        st.markdown("Images")
+        
+        # Create columns for image display
+        cols = st.columns(min(len(images), 3))  # Max 3 images per row
+        
+        for i, image_attachment in enumerate(images):
+            col_idx = i % 3
+            with cols[col_idx]:
+                try:
+                    filename = image_attachment.get("filename", f"Image_{i+1}")
+                    content_type = image_attachment.get("content_type", "")
+                    data = image_attachment.get("data", "")
+                    
+                    if data:
+                        # Decode base64 image
+                        image_bytes = base64.b64decode(data)
+                        image = Image.open(io.BytesIO(image_bytes))
+                        
+                        # Display image with filename
+                        st.image(image, caption=filename, width=200)
+                        
+                        # Add download button
+                        st.download_button(
+                            label=f"📥 Download {filename}",
+                            data=image_bytes,
+                            file_name=filename,
+                            mime=content_type,
+                            key=f"download_image_{i}"
+                        )
+                        
+                        # Display image info
+                        st.caption(f"**Type:** {content_type}")
+                        st.caption(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
+                        
+                except Exception as e:
+                    st.error(f"Failed to display image {filename}: {e}")
+    
+    # Display other documents
+    if documents:
+        st.markdown("#### 📄 Documents")
+        
+        for i, doc_attachment in enumerate(documents):
+            try:
+                filename = doc_attachment.get("filename", f"Document_{i+1}")
+                content_type = doc_attachment.get("content_type", "")
+                data = doc_attachment.get("data", "")
+                
+                if data:
+                    # Decode base64 document
+                    doc_bytes = base64.b64decode(data)
+                    
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    
+                    with col1:
+                        st.write(f"📄 **{filename}**")
+                        st.caption(f"Type: {content_type}")
+                    
+                    with col2:
+                        st.caption(f"Size: {len(doc_bytes) / 1024:.1f} KB")
+                    
+                    with col3:
+                        st.download_button(
+                            label="📥 Download",
+                            data=doc_bytes,
+                            file_name=filename,
+                            mime=content_type,
+                            key=f"download_doc_{i}"
+                        )
+                        
+            except Exception as e:
+                st.error(f"Failed to process document {filename}: {e}")
 
 
 
@@ -892,6 +993,9 @@ def fetch_json_data():
             }
             
             st.write("Extracted JSON Data:", normalized_data)
+            # ✅ DISPLAY ATTACHMENTS IF PRESENT
+            if "attachments" in data:
+                display_attachments(data["attachments"])
             return normalized_data
             
         # Fall back to the old format for backward compatibility
@@ -951,6 +1055,18 @@ def load_policy_from_json():
         data = fetch_json_data()
         if not data:
             return False
+        
+
+        # ✅ ADD FIELD MAPPING HERE
+        # Map API field names to database field names for all policy types
+        if "BROKER_NAME" in data and "Broker_Name" not in data:
+            data["Broker_Name"] = data["BROKER_NAME"]
+        # if "BROKER_ID" in data and "Broker_ID" not in data:
+        #     data["Broker_ID"] = data["BROKER_ID"]
+        if "FACILITY_NAME" in data and "Facility_Name" not in data:
+            data["Facility_Name"] = data["FACILITY_NAME"]
+        # if "FACILITY_ID" in data and "Facility_ID" not in data:
+        #     data["Facility_ID"] = data["FACILITY_ID"]
         
         policy_type = data.get("Type", "")
         
@@ -2107,6 +2223,52 @@ def show_policy_form():
 
 def show_claims_form(defaults):
     st.markdown("### NEW CLAIM FORM")
+
+    # ✅ DISPLAY CLAIM IMAGES AT TOP IF AVAILABLE
+    if "json_data" in st.session_state and st.session_state.json_data:
+        json_data = st.session_state.json_data
+        if "attachments" in json_data:
+            attachments = json_data["attachments"]
+            images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
+            
+            if images:
+                st.markdown("#### 📸 Claim Images")
+                st.info("💡 These images were extracted from your claim documents and can help with damage assessment.")
+                
+                # Display images in a grid
+                cols = st.columns(min(len(images), 4))  # Max 4 images per row
+                
+                for i, image_attachment in enumerate(images):
+                    col_idx = i % 4
+                    with cols[col_idx]:
+                        try:
+                            filename = image_attachment.get("filename", f"Claim_Image_{i+1}")
+                            data = image_attachment.get("data", "")
+                            content_type = image_attachment.get("content_type", "")
+                            
+                            if data:
+                                # Decode and display image
+                                image_bytes = base64.b64decode(data)
+                                image = Image.open(io.BytesIO(image_bytes))
+                                
+                                # Display with reduced size for form
+                                st.image(image, caption=filename, width=200)
+                                
+                                # Quick download button
+                                st.download_button(
+                                    label="📥",
+                                    data=image_bytes,
+                                    file_name=filename,
+                                    mime=content_type,
+                                    key=f"claim_img_{i}",
+                                    help=f"Download {filename}"
+                                )
+                                
+                        except Exception as e:
+                            st.error(f"Failed to display {filename}: {e}")
+                
+                st.markdown("---")  # Separator between images and form
+
     # Generate claim_no if not present
     if "claim_no" not in st.session_state:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")

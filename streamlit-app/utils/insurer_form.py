@@ -4,6 +4,7 @@ import string
 from db_utils import fetch_data
 from datetime import date, datetime, timedelta
 import time
+import re
 
 def generate_facility_id():
     """Generate facility ID by incrementing the last used facility ID by 1"""
@@ -41,13 +42,18 @@ def generate_facility_id():
         print(f"Error generating facility ID: {e}")
         return "FAC001"  # Default fallback
 
-def generate_insurer_id():
-    # Generate two random uppercase letters
-    random_letters = ''.join(random.choices(string.ascii_uppercase, k=2))
-    # Get current datetime as YYYYMMDDHHMMSS
-    dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
-    # Format: INSXXYYYYMMDDHHMMSS
-    return f"INS{random_letters}{dt_str}"
+# def generate_insurer_id():
+#     # Generate two random uppercase letters
+#     random_letters = ''.join(random.choices(string.ascii_uppercase, k=2))
+#     # Get current datetime as YYYYMMDDHHMMSS
+#     dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+#     # Format: INSXXYYYYMMDDHHMMSS
+#     return f"INS{random_letters}{dt_str}"
+
+
+
+
+
 
 # def check_facility_exists(facility_id):
 #     """Check if Facility ID already exists in database"""
@@ -59,6 +65,42 @@ def generate_insurer_id():
 #         return False
 #     except Exception:
 #         return False
+
+def generate_insurer_id(insurer_name, fca_number):
+    """
+    Generate insurer ID in format: INS{Initial letters of first two words}{FCA Number}
+    Example: "Lloyd's Syndicate 1234" + "5678" = "INSLS5678"
+    """
+    try:
+        # Clean and split insurer name into words
+        # Remove punctuation and extra spaces
+        cleaned_name = re.sub(r'[^\w\s]', ' ', insurer_name)
+        words = [word.strip() for word in cleaned_name.split() if word.strip()]
+        
+        # Get first letters of first two words
+        if len(words) >= 2:
+            initials = (words[0][0] + words[1][0]).upper()
+        elif len(words) == 1:
+            # If only one word, use first two letters
+            initials = words[0][:2].upper()
+        else:
+            # Fallback to random letters if no valid words
+            initials = ''.join(random.choices(string.ascii_uppercase, k=2))
+        
+        # Clean FCA number (remove any non-digits)
+        clean_fca = ''.join(c for c in str(fca_number) if c.isdigit())
+        
+        # Generate insurer ID
+        insurer_id = f"INS{initials}{clean_fca}"
+        
+        return insurer_id
+        
+    except Exception as e:
+        print(f"DEBUG: Error generating insurer ID: {e}")
+        # Fallback to original timestamp method
+        random_letters = ''.join(random.choices(string.ascii_uppercase, k=2))
+        dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        return f"INS{random_letters}{dt_str}"
 
 def insurer_form(defaults=None):
     """Form for adding/editing insurer information"""
@@ -133,7 +175,8 @@ def insurer_form(defaults=None):
             insurer_defaults = defaults.get("insurers", [])
             current_insurer = insurer_defaults[i] if i < len(insurer_defaults) else {}
             
-            insurer_id = generate_insurer_id()
+            # insurer_id = generate_insurer_id()
+            insurer_id = generate_insurer_id(insurer_name, fca_registration)
             
             insurer_name = col_name.text_input(
                 f"Insurer Name *", 
@@ -203,8 +246,11 @@ def insurer_form(defaults=None):
                 "Delegated_Authority": delegated_authority,
                 "Status": "Active" if date_of_onboarding and (date_of_onboarding + timedelta(days=longevity_years * 365)) > date.today() else "Completed",
                 "Date_Of_Expiry": (date_of_onboarding + timedelta(days=longevity_years * 365)).strftime("%Y-%m-%d") if date_of_onboarding else None,
+                "Submission_Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "GUID": None
             })
-            
+            print(f"DEBUG: **Generated Insurer ID for {insurer_name}:** `{insurer_id}`")
+
             # Add a separator between insurers (except for the last one)
             if i < group_size - 1:
                 st.markdown("---")
