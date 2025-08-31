@@ -4,9 +4,7 @@ import sys
 from db_utils import fetch_data
 from pathlib import Path
 
-# ✅ Add the utils directory to the path
-utils_path = Path(__file__).parent.parent / "utils"
-sys.path.insert(0, str(utils_path))
+
 
 def policy_tab():
     st.header("Policy Management")
