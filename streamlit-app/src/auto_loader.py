@@ -5,7 +5,6 @@ import sys
 import os
 from datetime import datetime, date
 import time
-import random
 import streamlit as st
 import tempfile
 from azure.storage.blob import BlobServiceClient, ContentSettings

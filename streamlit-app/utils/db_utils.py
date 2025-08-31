@@ -1,5 +1,6 @@
 from datetime import datetime, date
 import os
+from pathlib import Path
 import pyodbc
 import streamlit as st
 import time
@@ -7,6 +8,10 @@ import traceback
 import psutil
 import uuid
 import json 
+import dotenv
+
+dotenv.load_dotenv(Path(__file__).parent.parent / ".env")
+
 
 def get_db_connection():
  
@@ -16,6 +21,8 @@ def get_db_connection():
     database = os.getenv("DATABASE")
     username = os.getenv("USERNAME")
     password = os.getenv("PASSWORD")
+
+
 
     # Create a connection string
     connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'

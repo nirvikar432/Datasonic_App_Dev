@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import pyodbc
-import os
 from dotenv import load_dotenv
 from db_utils import get_db_connection
 
