@@ -8,3 +8,5 @@ python-magic
 psutil>=5.9.0
 streamlit-chat
 pymssql
+python-dotenv
+
