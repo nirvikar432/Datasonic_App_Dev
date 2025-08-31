@@ -1,0 +1,10 @@
+streamlit
+pandas
+plotly
+pyodbc
+FPDF
+azure-storage-blob
+python-magic
+psutil>=5.9.0
+streamlit-chat
+pymssql
