@@ -398,17 +398,6 @@ def display_single_claim_image(image_attachment, index):
                 st.write(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
                 st.write(f"**Dimensions:** {image.size[0]} x {image.size[1]}")
                 
-                # # Download button
-                # st.download_button(
-                #     label="📥 Download Original",
-                #     data=image_bytes,
-                #     file_name=filename,
-                #     mime=content_type,
-                #     key=f"gallery_download_{index}",
-                #     type="primary",
-                #     use_container_width=True
-                # )
-                
                 # ✅ ADD CALCULATE SEVERITY BUTTON
                 if st.button("🔍 Calculate Severity", key=f"analyze_{index}", use_container_width=True, type="secondary"):
                     # Send image to CV API for damage analysis

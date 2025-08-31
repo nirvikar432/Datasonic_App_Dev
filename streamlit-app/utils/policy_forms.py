@@ -680,7 +680,7 @@ def policy_manual_form(defaults=None):
             st.rerun()
     # ====================================================== INSURER DETAILS FORM SECTION ======================================================
     st.subheader("Insurer Details")
-    selected_facility = st.selectbox("Select Facility *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
+    selected_facility = st.selectbox("Select Carrier *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
     
     # Display insurer details if a facility is selected
     if selected_facility and selected_facility != "Select Facility" and selected_facility != "No Facilities Found" and selected_facility != "Error loading facilities":
@@ -688,18 +688,18 @@ def policy_manual_form(defaults=None):
         facility_insurers = [insurer for insurer in insurer_data if insurer["Facility_Name"] == selected_facility]
         
         if facility_insurers:
-            st.markdown(f"**Facility:** {selected_facility}")
+            st.markdown(f"**Carrier:** {selected_facility}")
             
             # Show facility details (using first record for facility info)
             first_record = facility_insurers[0]
             col_f1, col_f2 = st.columns(2)
             with col_f1:
-                st.text_input("Facility ID", value=str(first_record.get("Facility_ID", "")), disabled=True, key="facility_id_display")
+                st.text_input("Carrier ID", value=str(first_record.get("Facility_ID", "")), disabled=True, key="facility_id_display")
             with col_f2:
                 st.text_input("Group Size", value=str(first_record.get("Group_Size", "")), disabled=True, key="group_size_display")
             
 
-            st.markdown("**Insurers in this Facility:**")
+            st.markdown("**Insurers in this Carrier:**")
             
             # Create table using st.table for static display
             import pandas as pd

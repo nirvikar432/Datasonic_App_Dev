@@ -176,7 +176,7 @@ def insurer_form(defaults=None):
             current_insurer = insurer_defaults[i] if i < len(insurer_defaults) else {}
             
             # insurer_id = generate_insurer_id()
-            insurer_id = generate_insurer_id(insurer_name, fca_registration)
+            
             
             insurer_name = col_name.text_input(
                 f"Insurer Name *", 
@@ -221,6 +221,8 @@ def insurer_form(defaults=None):
                 index=current_insurer.get("Insurer_Type_Index", 0),
                 key=f"insurer_type_{i}"
             )
+            insurer_id = generate_insurer_id(insurer_name, fca_registration)
+
 
             # longevity_years = col_long_year.number_input("Longevity (Years)", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years_{i}")
             delegated_authority = st.checkbox(
