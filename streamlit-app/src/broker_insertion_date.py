@@ -3,25 +3,10 @@ import numpy as np
 import pyodbc
 import os
 from dotenv import load_dotenv
+from db_utils import get_db_connection
 
 # Load environment variables
 load_dotenv()
-
-def get_db_connection():
- 
-
-    # Define your connection parameters
-    server = 'datasonic.database.windows.net'
-    database = 'datasonicdb'
-    username = 'nirvikar'
-    password = 'datasonic@123'
-
-    # Create a connection string
-    connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-
-    # Establish a connection to the database
-    conn = pyodbc.connect(connection_string)
-    return conn
 
 # Connect to SQL Server using your existing method
 conn = get_db_connection()
@@ -31,7 +16,7 @@ if conn:
     
     # Load broker table
     df = pd.read_sql("SELECT * FROM [dbo].[broker]", conn)
-    print(f"📊 Loaded {len(df)} broker records")
+    print(f"Loaded {len(df)} broker records")
     
     # Convert onboarding date
     df['Date_Of_Onboarding'] = pd.to_datetime(df['Date_Of_Onboarding'])

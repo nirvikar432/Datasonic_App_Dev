@@ -4,7 +4,7 @@ from db_utils import fetch_data
 
 def policy_tab():
     st.header("Policy Management")
-    policy_query = "SELECT TOP 100 * FROM Policy"
+    policy_query = "SELECT TOP 100 * FROM New_Policy"
     policies = fetch_data(policy_query)
     df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()
     

@@ -189,6 +189,326 @@ def upload_to_blob(file_path, blob_name, metadata):
     return blob_client.url
 
 
+####################CV END POINT#######################
+
+
+def analyze_image_damage(image_data, filename):
+    """Send image to CV endpoint for damage analysis"""
+    try:
+        # CV API endpoint
+        cv_endpoint = os.getenv("CV_ENDPOINT")
+
+        try:
+            payload = {
+                "image_b64": image_data, 
+                "filename": filename
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            
+            with st.spinner("Analyzing damage with Computer Vision..."):
+                response = requests.post(cv_endpoint, json=payload, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"JSON method failed: {response.status_code} - {response.text}")
+        except Exception as json_error:
+            print(f"JSON method error: {json_error}")
+            
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. The analysis is taking longer than expected.")
+        return None
+    except requests.exceptions.ConnectionError:
+        st.error("Connection error. Please check your internet connection.")
+        return None
+    except Exception as e:
+        st.error(f"Error analyzing image: {str(e)}")
+        return None
+
+def display_damage_analysis(analysis_result, filename):
+    """Display damage analysis results in a formatted way"""
+    if not analysis_result:
+        return
+    
+    st.markdown("### Damage Analysis Results")
+    
+    # Create main container
+    with st.container():
+        # Header with filename
+        st.markdown(f"**    Analysis for:** `{filename}`")
+        st.markdown("---")
+        
+        # Get data from response
+        detection_result = analysis_result.get("detection_result", {})
+        severity_assessment = analysis_result.get("severity_assessment", {})
+
+        # ✅ DEBUG: Show raw response structure
+        with st.expander("🔧 Debug: Raw API Response"):
+            st.json(analysis_result)
+        
+        # Severity Assessment (Top Priority)
+        if severity_assessment:
+            severity = severity_assessment.get("severity", "Unknown")
+            reason = severity_assessment.get("reason", "No reason provided")
+            
+            # Color code severity
+            severity_color = {
+                "High Severity": "🔴",
+                "Medium Severity": "🟡", 
+                "Low Severity": "🟢",
+                "Unknown": "⚪"
+            }
+            
+            severity_icon = severity_color.get(severity, "⚪")
+            
+            st.markdown(f"#### {severity_icon} Severity Assessment")
+            
+            # Severity badge
+            if "High" in severity:
+                st.error(f"**{severity}**")
+            elif "Medium" in severity:
+                st.warning(f"**{severity}**")
+            elif "Low" in severity:
+                st.success(f"**{severity}**")
+            else:
+                st.info(f"**{severity}**")
+            
+            # Detailed reason
+            with st.expander("🔍 Detailed Analysis Reason", expanded=True):
+                st.write(reason)
+        
+        st.markdown("---")
+        
+        # Damage Summary
+        damage_summary = detection_result.get("damage_summary", {})
+        total_detections = detection_result.get("total_detections", 0)
+        
+        if damage_summary or total_detections > 0:
+            st.markdown("#### Damage Summary")
+            
+            # Total detections metric
+            col1, col2, col3 = st.columns([1, 1, 2])
+            
+            with col1:
+                st.metric("Total Damage Points", total_detections)
+            
+            with col2:
+                damage_types = len([k for k, v in damage_summary.items() if v.get("count", 0) > 0])
+                st.metric("Damage Types", damage_types)
+            
+            with col3:
+                 # Severity indicator
+                    if severity_assessment.get("severity"):
+                        severity_value = severity_assessment.get("severity")
+                        st.metric("Overall Severity", severity_value)
+            
+            st.markdown("---")
+            
+            # Individual damage breakdown
+            st.markdown("#### Damage Breakdown")
+            
+            # Create damage cards
+            damage_icons = {
+                "dent": "🔨",
+                "broken_light": "💡",
+                "bumper_damage": "🚗",
+                "scratch": "✏️",
+                "crack": "💥",
+                "missing_part": "❌"
+            }
+            
+            # Calculate columns needed
+            damage_items = [(k, v) for k, v in damage_summary.items() if v.get("count", 0) > 0]
+            
+            if damage_items:
+                # Create columns for damage items
+                cols = st.columns(min(len(damage_items), 3))
+                
+                for i, (damage_type, damage_info) in enumerate(damage_items):
+                    col_idx = i % 3
+                    with cols[col_idx]:
+                        count = damage_info.get("count", 0)
+                        icon = damage_icons.get(damage_type, "⚠️")
+                        
+                        # Format damage type name
+                        display_name = damage_type.replace("_", " ").title()
+                        
+                        # Create damage card
+                        st.markdown(f"""
+                        <div style="
+                            border: 2px solid #e0e0e0; 
+                            border-radius: 10px; 
+                            padding: 15px; 
+                            text-align: center; 
+                            background-color: #f9f9f9;
+                            margin: 5px 0;
+                        ">
+                            <h3 style="margin: 0; color: #333;">{icon}</h3>
+                            <h4 style="margin: 5px 0; color: #666;">{display_name}</h4>
+                            <h2 style="margin: 0; color: #d32f2f;">{count}</h2>
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.success("✅ No significant damage detected!")
+        
+        # Raw JSON data (expandable)
+        with st.expander("Raw Analysis Data"):
+            st.json(analysis_result)
+
+def get_severity_color_style(severity):
+    """Get CSS style for severity display"""
+    if "High" in severity:
+        return "background-color: #ffebee; border-left: 5px solid #f44336; padding: 10px;"
+    elif "Medium" in severity:
+        return "background-color: #fff8e1; border-left: 5px solid #ff9800; padding: 10px;"
+    elif "Low" in severity:
+        return "background-color: #e8f5e8; border-left: 5px solid #4caf50; padding: 10px;"
+    else:
+        return "background-color: #f5f5f5; border-left: 5px solid #9e9e9e; padding: 10px;"
+
+
+
+def display_single_claim_image(image_attachment, index):
+    """Display a single claim image with details and damage analysis"""
+    try:
+        filename = image_attachment.get("filename", f"Image_{index+1}")
+        content_type = image_attachment.get("content_type", "")
+        data = image_attachment.get("data", "")
+        
+        if data:
+            # Decode image
+            image_bytes = base64.b64decode(data)
+            image = Image.open(io.BytesIO(image_bytes))
+            
+            # Create columns for image and details
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                # Display large image
+                st.image(image, caption=filename, width=200)
+            
+            with col2:
+                # Image details
+                st.markdown("**📋 Image Details**")
+                st.write(f"**Filename:** {filename}")
+                st.write(f"**Type:** {content_type}")
+                st.write(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
+                st.write(f"**Dimensions:** {image.size[0]} x {image.size[1]}")
+                
+                # # Download button
+                # st.download_button(
+                #     label="📥 Download Original",
+                #     data=image_bytes,
+                #     file_name=filename,
+                #     mime=content_type,
+                #     key=f"gallery_download_{index}",
+                #     type="primary",
+                #     use_container_width=True
+                # )
+                
+                # ✅ ADD CALCULATE SEVERITY BUTTON
+                if st.button("🔍 Calculate Severity", key=f"analyze_{index}", use_container_width=True, type="secondary"):
+                    # Send image to CV API for damage analysis
+                    analysis_result = analyze_image_damage(data, filename)
+                    
+                    if analysis_result:
+                        # Store result in session state for persistence
+                        analysis_key = f"damage_analysis_{index}"
+                        st.session_state[analysis_key] = analysis_result
+                        st.success("✅ Damage analysis completed!")
+                        st.rerun()  # Refresh to show results
+                    else:
+                        st.error("❌ Failed to analyze damage. Please try again.")
+            
+            # ✅ DISPLAY ANALYSIS RESULTS IF AVAILABLE
+            analysis_key = f"damage_analysis_{index}"
+            if analysis_key in st.session_state:
+                st.markdown("---")
+                display_damage_analysis(st.session_state[analysis_key], filename)
+                
+                # Clear analysis button
+                if st.button("🗑️ Clear Analysis", key=f"clear_analysis_{index}"):
+                    del st.session_state[analysis_key]
+                    st.rerun()
+                    
+    except Exception as e:
+        st.error(f"Failed to display image: {e}")
+
+
+def display_severity_dashboard(num_images):
+    """Display a dashboard summarizing all severity analyses"""
+    analyses = []
+    
+    # Collect all analyses
+    for i in range(num_images):
+        analysis_key = f"damage_analysis_{i}"
+        if analysis_key in st.session_state:
+            analyses.append(st.session_state[analysis_key])
+    
+    if not analyses:
+        return
+    
+    st.markdown("### Severity Dashboard")
+    
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    high_severity = sum(1 for a in analyses if "High" in a.get("severity_assessment", {}).get("severity", ""))
+    medium_severity = sum(1 for a in analyses if "Medium" in a.get("severity_assessment", {}).get("severity", ""))
+    low_severity = sum(1 for a in analyses if "Low" in a.get("severity_assessment", {}).get("severity", ""))
+    total_damages = sum(a.get("detection_result", {}).get("total_detections", 0) for a in analyses)
+    
+    with col1:
+        st.metric("High Severity", high_severity, delta="🔴" if high_severity > 0 else None)
+    with col2:
+        st.metric("Medium Severity", medium_severity, delta="🟡" if medium_severity > 0 else None)
+    with col3:
+        st.metric("Low Severity", low_severity, delta="🟢" if low_severity > 0 else None)
+    with col4:
+        st.metric("Total Damage Points", total_damages)
+    
+    # Overall assessment
+    if high_severity > 0:
+        st.error("🚨 **Overall Assessment: High Priority** - Immediate attention required")
+    elif medium_severity > 0:
+        st.warning("⚠️ **Overall Assessment: Medium Priority** - Requires attention")
+    elif low_severity > 0:
+        st.success("✅ **Overall Assessment: Low Priority** - Minor issues detected")
+    else:
+        st.info("ℹ️ **Overall Assessment: No Analysis Available**")
+    
+    # Damage type aggregation
+    all_damage_types = {}
+    for analysis in analyses:
+        damage_summary = analysis.get("detection_result", {}).get("damage_summary", {})
+        for damage_type, info in damage_summary.items():
+            count = info.get("count", 0)
+            if count > 0:
+                all_damage_types[damage_type] = all_damage_types.get(damage_type, 0) + count
+    
+    if all_damage_types:
+        st.markdown("#### Damage Type Summary")
+        damage_cols = st.columns(min(len(all_damage_types), 4))
+        
+        damage_icons = {
+            "dent": "🔨",
+            "broken_light": "💡", 
+            "bumper_damage": "🚗",
+            "scratch": "✏️",
+            "crack": "💥",
+            "missing_part": "❌"
+        }
+        
+        for i, (damage_type, count) in enumerate(all_damage_types.items()):
+            col_idx = i % 4
+            with damage_cols[col_idx]:
+                icon = damage_icons.get(damage_type, "⚠️")
+                display_name = damage_type.replace("_", " ").title()
+                st.metric(f"{icon} {display_name}", count)
 
 
 def display_attachments(attachments):
@@ -196,7 +516,7 @@ def display_attachments(attachments):
     if not attachments or len(attachments) == 0:
         return
     
-    st.subheader("📎 Attachments from Upload")
+    st.subheader("📎 Attachments from Uploadaaa")
     
     # Group attachments by type
     images = []
@@ -212,9 +532,30 @@ def display_attachments(attachments):
         else:
             documents.append(attachment)
     
-    # Display images
+    # Display images with severity analysis
     if images:
-        st.markdown("Images")
+        st.markdown("#### Images")
+        
+        # ✅ ADD BULK ANALYSIS BUTTON
+        if len(images) > 1:
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                if st.button("🔍 Analyze All Images", key="bulk_analyze"):
+                    progress_bar = st.progress(0)
+                    
+                    for i, image_attachment in enumerate(images):
+                        filename = image_attachment.get("filename", f"Image_{i+1}")
+                        data = image_attachment.get("data", "")
+                        
+                        if data:
+                            analysis_result = analyze_image_damage(data, filename)
+                            if analysis_result:
+                                st.session_state[f"damage_analysis_{i}"] = analysis_result
+                        
+                        progress_bar.progress((i + 1) / len(images))
+                    
+                    st.success(f"✅ Analyzed {len(images)} images!")
+                    st.rerun()
         
         # Create columns for image display
         cols = st.columns(min(len(images), 3))  # Max 3 images per row
@@ -235,13 +576,35 @@ def display_attachments(attachments):
                         # Display image with filename
                         st.image(image, caption=filename, width=200)
                         
-                        # Add download button
+                        # Quick analysis button
+                        if st.button(f"🔍 Analyze", key=f"quick_analyze_{i}", use_container_width=True):
+                            analysis_result = analyze_image_damage(data, filename)
+                            if analysis_result:
+                                st.session_state[f"damage_analysis_{i}"] = analysis_result
+                                st.success("✅ Analysis complete!")
+                                st.rerun()
+                        
+                        # Show severity if already analyzed
+                        analysis_key = f"damage_analysis_{i}"
+                        if analysis_key in st.session_state:
+                            severity = st.session_state[analysis_key].get("severity_assessment", {}).get("severity", "Unknown")
+                            if "High" in severity:
+                                st.error(f"⚠️ {severity}")
+                            elif "Medium" in severity:
+                                st.warning(f"⚠️ {severity}")
+                            elif "Low" in severity:
+                                st.success(f"✅ {severity}")
+                            else:
+                                st.info(f"ℹ️ {severity}")
+                        
+                        # Download button
                         st.download_button(
-                            label=f"📥 Download {filename}",
+                            label=f"📥 Download",
                             data=image_bytes,
                             file_name=filename,
                             mime=content_type,
-                            key=f"download_image_{i}"
+                            key=f"download_image_{i}",
+                            use_container_width=True
                         )
                         
                         # Display image info
@@ -251,66 +614,6 @@ def display_attachments(attachments):
                 except Exception as e:
                     st.error(f"Failed to display image {filename}: {e}")
     
-    # Display other documents
-    if documents:
-        st.markdown("#### 📄 Documents")
-        
-        for i, doc_attachment in enumerate(documents):
-            try:
-                filename = doc_attachment.get("filename", f"Document_{i+1}")
-                content_type = doc_attachment.get("content_type", "")
-                data = doc_attachment.get("data", "")
-                
-                if data:
-                    # Decode base64 document
-                    doc_bytes = base64.b64decode(data)
-                    
-                    col1, col2, col3 = st.columns([2, 1, 1])
-                    
-                    with col1:
-                        st.write(f"📄 **{filename}**")
-                        st.caption(f"Type: {content_type}")
-                    
-                    with col2:
-                        st.caption(f"Size: {len(doc_bytes) / 1024:.1f} KB")
-                    
-                    with col3:
-                        st.download_button(
-                            label="📥 Download",
-                            data=doc_bytes,
-                            file_name=filename,
-                            mime=content_type,
-                            key=f"download_doc_{i}"
-                        )
-                        
-            except Exception as e:
-                st.error(f"Failed to process document {filename}: {e}")
-
-
-
-# def process_document_with_api(file_path, file_name):
-#     """Send document to API for processing and return the extracted JSON data"""
-#     try:
-#         # Prepare the files and data for the API request
-#         files = {
-#             'file': (file_name, open(file_path, 'rb'), 'application/pdf')
-#         }
-        
-#         params = {
-#             'code': API_CODE
-#     }
-        
-#         # Make the API request
-#         response = requests.post(API_URL, files=files, params=params)
-        
-#         # Check if the request was successful
-#         if response.status_code == 200:
-#             return response.json()
-#         else:
-#             raise Exception(f"API Error: {response.status_code} - {response.text}")
-            
-#     except Exception as e:
-#         raise Exception(f"Error processing document with API: {e}")
 
 
 def process_multiple_documents_with_api(file_paths, file_names):
@@ -1818,6 +2121,25 @@ def show_policy_form():
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_update_data
 
+            # ✅ ADD CLAIM IMAGES & DAMAGE ANALYSIS SECTION
+            if "json_data" in st.session_state and st.session_state.json_data:
+                json_data = st.session_state.json_data
+                if "attachments" in json_data:
+                    attachments = json_data["attachments"]
+                    images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
+                    
+                    if images:
+                        st.markdown("#### 📸 Updated Claim Images & Damage Analysis")
+                        st.info("💡 Uploaded images can help assess updated damage and support claim processing.")
+
+                        # Display severity dashboard if any analyses exist
+                        display_severity_dashboard(len(images))
+                        
+                        # Display images with analysis capability
+                        # display_attachments(attachments)
+                        
+                        st.markdown("---")  # Separator between images and form
+
             st.markdown(f"#### Update Claim: {claim_data.get('CLAIM_NO', '')}")
             with st.form("update_claim_form"):
                 # Editable fields
@@ -1952,6 +2274,25 @@ def show_policy_form():
             st.markdown("### CLAIM CLOSURE FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_close_data
+
+            # ✅ ADD CLAIM IMAGES & DAMAGE ANALYSIS SECTION
+            if "json_data" in st.session_state and st.session_state.json_data:
+                json_data = st.session_state.json_data
+                if "attachments" in json_data:
+                    attachments = json_data["attachments"]
+                    images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
+                    
+                    if images:
+                        st.markdown("#### 📸 Updated Claim Images & Damage Analysis")
+                        st.info("💡 Uploaded images can help assess updated damage and support claim processing.")
+
+                        # Display severity dashboard if any analyses exist
+                        display_severity_dashboard(len(images))
+                        
+                        # Display images with analysis capability
+                        # display_attachments(attachments)
+                        
+                        st.markdown("---")  # Separator between images and form
             
             with st.form("close_claim_form"):
                 # Closure fields
@@ -2095,6 +2436,25 @@ def show_policy_form():
             st.markdown("### CLAIM REOPEN FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_reopen_data
+
+            # ✅ ADD CLAIM IMAGES & DAMAGE ANALYSIS SECTION
+            if "json_data" in st.session_state and st.session_state.json_data:
+                json_data = st.session_state.json_data
+                if "attachments" in json_data:
+                    attachments = json_data["attachments"]
+                    images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
+                    
+                    if images:
+                        st.markdown("#### 📸 Updated Claim Images & Damage Analysis")
+                        st.info("💡 Uploaded images can help assess updated damage and support claim processing.")
+
+                        # Display severity dashboard if any analyses exist
+                        display_severity_dashboard(len(images))
+                        
+                        # Display images with analysis capability
+                        # display_attachments(attachments)
+                        
+                        st.markdown("---")  # Separator between images and form
             
             with st.form("reopen_claim_form"):
                 # Reopen fields
@@ -2232,8 +2592,16 @@ def show_claims_form(defaults):
             images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
             
             if images:
-                st.markdown("#### 📸 Claim Images")
-                st.info("💡 These images were extracted from your claim documents and can help with damage assessment.")
+                st.markdown("#### 📸 Claim Images & Damage Analysis")
+                st.info("💡 Upload images to automatically assess damage severity and help with claim processing.")
+
+                # Display severity dashboard if any analyses exist
+                display_severity_dashboard(len(images))
+                
+                # Display images with analysis capability
+                # display_attachments(attachments)
+                
+                st.markdown("---")  # Separator between images and form
                 
                 # Display images in a grid
                 cols = st.columns(min(len(images), 4))  # Max 4 images per row

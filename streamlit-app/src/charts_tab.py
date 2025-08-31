@@ -7,8 +7,8 @@ def charts_tab():
     st.header("Charts & Analytics")
 
     # Fetch data for charts
-    policy_df = pd.DataFrame(fetch_data("SELECT TOP 1000 * FROM Policy"))
-    claims_df = pd.DataFrame(fetch_data("SELECT TOP 20 * FROM Claims"))
+    policy_df = pd.DataFrame(fetch_data("SELECT TOP 1000 * FROM New_Policy"))
+    claims_df = pd.DataFrame(fetch_data("SELECT TOP 20 * FROM New_Claims"))
 
     # Convert date columns to datetime
     if not policy_df.empty and "POL_EFF_DATE" in policy_df.columns:

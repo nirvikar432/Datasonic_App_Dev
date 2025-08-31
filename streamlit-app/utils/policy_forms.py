@@ -3,6 +3,218 @@ from db_utils import fetch_data
 from datetime import datetime, date
 
 
+
+import requests
+import json
+
+def predict_premium_api(form_data):
+    """
+    Send form data to premium prediction API and return predicted premium
+    
+    Args:
+        form_data (dict): Form data to send for prediction
+        
+    Returns:
+        int/float: Predicted premium value or None if failed
+    """
+    try:
+        # ✅ REPLACE WITH YOUR ACTUAL API ENDPOINT
+        api_endpoint = "https://your-premium-prediction-api.com/predict"
+        # Example: "https://ds-premium-api.azurewebsites.net/api/predict-premium"
+        
+        # Prepare headers
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Optional: Add API key if required
+        # headers["Authorization"] = "Bearer YOUR_API_KEY"
+        # headers["x-api-key"] = "YOUR_API_KEY"
+        
+        # Show loading spinner
+        with st.spinner("🔮 Predicting premium based on your data..."):
+            # Make API request
+            response = requests.post(
+                api_endpoint, 
+                json=form_data, 
+                headers=headers, 
+                timeout=30
+            )
+        
+        if response.status_code == 200:
+            try:
+                result = response.json()
+                
+                # ✅ EXPECTED API RESPONSE FORMAT
+                # {"predicted_premium": 1250, "confidence": 0.95, "model_version": "v1.2"}
+                
+                if "predicted_premium" in result:
+                    predicted_premium = result["predicted_premium"]
+                    confidence = result.get("confidence", "Unknown")
+                    model_version = result.get("model_version", "Unknown")
+                    
+                    # Show success message with details
+                    st.success(f"✅ Premium predicted successfully!")
+                    
+                    # Show prediction details in expandable section
+                    with st.expander("📊 Prediction Details"):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Predicted Premium", f"₹{predicted_premium:,}")
+                        with col2:
+                            if confidence != "Unknown":
+                                st.metric("Confidence", f"{confidence:.2%}" if isinstance(confidence, float) else confidence)
+                            else:
+                                st.metric("Confidence", confidence)
+                        with col3:
+                            st.metric("Model Version", model_version)
+                        
+                        # Show what factors influenced the prediction
+                        if "factors" in result:
+                            st.markdown("**Key Factors:**")
+                            for factor, impact in result["factors"].items():
+                                st.write(f"• {factor}: {impact}")
+                    
+                    return predicted_premium
+                    
+                else:
+                    st.error("❌ Invalid API response format. Missing 'predicted_premium' field.")
+                    st.write("**API Response:**", result)
+                    return None
+                    
+            except json.JSONDecodeError:
+                st.error("❌ Invalid JSON response from API")
+                st.write("**Raw Response:**", response.text)
+                return None
+                
+        else:
+            st.error(f"❌ API Error: {response.status_code}")
+            try:
+                error_details = response.json()
+                st.error(f"Error details: {error_details}")
+            except:
+                st.error(f"Raw error: {response.text}")
+            return None
+            
+    except requests.exceptions.Timeout:
+        st.error("⏰ Request timed out. The prediction service is taking longer than expected.")
+        return None
+    except requests.exceptions.ConnectionError:
+        st.error("🌐 Connection error. Please check your internet connection or try again later.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Unexpected error during premium prediction: {str(e)}")
+        return None
+
+def validate_prediction_data(form_data):
+    """
+    Validate form data before sending to prediction API
+    
+    Args:
+        form_data (dict): Form data to validate
+        
+    Returns:
+        tuple: (is_valid, errors, cleaned_data)
+    """
+    errors = []
+    cleaned_data = form_data.copy()
+    
+    # Required fields for prediction
+    required_fields = [
+        "MAKE", "MODEL", "SUM_INSURED", "DRV_DOB", 
+        "NATIONALITY", "USE_OF_VEHICLE"
+    ]
+    
+    # Check required fields
+    for field in required_fields:
+        if not cleaned_data.get(field) or str(cleaned_data[field]).strip() == "":
+            errors.append(f"{field} is required for premium prediction")
+    
+    # Validate numeric fields
+    numeric_fields = ["SUM_INSURED", "VEH_SEATS", "MODEL_YEAR"]
+    for field in numeric_fields:
+        if cleaned_data.get(field):
+            try:
+                if field == "SUM_INSURED":
+                    cleaned_data[field] = float(cleaned_data[field])
+                else:
+                    cleaned_data[field] = int(cleaned_data[field])
+            except ValueError:
+                errors.append(f"{field} must be a valid number")
+    
+    # Validate dates
+    date_fields = ["DRV_DOB", "DRV_DLI", "POL_ISSUE_DATE", "POL_EFF_DATE", "POL_EXPIRY_DATE"]
+    for field in date_fields:
+        if cleaned_data.get(field):
+            # Convert date objects to strings if needed
+            if hasattr(cleaned_data[field], 'strftime'):
+                cleaned_data[field] = cleaned_data[field].strftime("%Y-%m-%d")
+    
+    return len(errors) == 0, errors, cleaned_data
+
+def mock_premium_prediction(form_data):
+    """
+    Mock premium prediction for testing (remove when real API is available)
+    """
+    import random
+    import time
+    
+    # Simulate API delay
+    time.sleep(2)
+    
+    # Simple mock calculation based on sum insured
+    try:
+        sum_insured = float(form_data.get("SUM_INSURED", 100000))
+        
+        # Mock premium calculation (3-5% of sum insured)
+        base_rate = random.uniform(0.03, 0.05)
+        
+        # Adjust based on vehicle make (mock logic)
+        make = form_data.get("MAKE", "").lower()
+        if "bmw" in make or "mercedes" in make or "audi" in make:
+            base_rate *= 1.3  # Luxury car premium
+        elif "toyota" in make or "honda" in make:
+            base_rate *= 0.9  # Reliable car discount
+        
+        # Adjust based on driver age (mock logic)
+        try:
+            from datetime import datetime
+            dob_str = form_data.get("DRV_DOB", "")
+            if dob_str:
+                if isinstance(dob_str, str):
+                    dob = datetime.strptime(dob_str, "%Y-%m-%d")
+                else:
+                    dob = dob_str
+                age = datetime.now().year - dob.year
+                
+                if age < 25:
+                    base_rate *= 1.5  # Young driver premium
+                elif age > 50:
+                    base_rate *= 0.8  # Experienced driver discount
+        except:
+            pass
+        
+        predicted_premium = int(sum_insured * base_rate)
+        
+        return {
+            "predicted_premium": predicted_premium,
+            "confidence": round(random.uniform(0.85, 0.98), 2),
+            "model_version": "mock_v1.0",
+            "factors": {
+                "Sum Insured": f"₹{sum_insured:,}",
+                "Vehicle Make": form_data.get("MAKE", "Unknown"),
+                "Base Rate": f"{base_rate:.3%}"
+            }
+        }
+        
+    except Exception as e:
+        return {"error": f"Mock prediction failed: {e}"}
+
+
+        ##################################
+
+
 # def _format_submission_dt(dt: datetime) -> str:
 #     # Millisecond precision like 2015-10-19 05:57:01.900
 #     return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -410,9 +622,62 @@ def policy_manual_form(defaults=None):
 
     pol_expiry_date = col23.date_input("POLICY EXPIRY DATE *", value=defaults.get("POL_EXPIRY_DATE", get_default_expiry_date()))
 
-    col18, col19, col20 = st.columns(3)
-    premium2 = col18.text_input("PREMIUM *", value=int(defaults.get("PREMIUM2", 0)))
+    # col18, col19, col20 = st.columns(3)
+    # premium2 = col18.text_input("PREMIUM *", value=int(defaults.get("PREMIUM2", 0)))
+    # ✅ ENHANCED PREMIUM SECTION WITH PREDICT BUTTON
+    st.markdown("#### Premium Calculation")
+    col18, col19, col20 = st.columns([2, 1, 1])
+    
+    with col18:
+        # ✅ INITIALIZE PREMIUM IN SESSION STATE IF NOT EXISTS
+        if "predicted_premium" not in st.session_state:
+            st.session_state.predicted_premium = defaults.get("PREMIUM2", 0)
+        
+        premium2 = st.text_input(
+            "PREMIUM *", 
+            value=str(st.session_state.predicted_premium),
+            key="premium_input"
+        )
 
+    with col19:
+        # ✅ PREDICT PREMIUM BUTTON
+        if st.button("🔮 Predict Premium", type="secondary", use_container_width=True):
+            # Collect all current form data for prediction
+            prediction_data = {
+                "CUST_ID": cust_id.strip() if cust_id else "",
+                "EXECUTIVE": executive.strip() if executive else "",
+                "REGN": regn.strip() if regn else "",
+                "BODY": body.strip() if body else "",
+                "MAKE": make.strip() if make else "",
+                "MODEL": model.strip() if model else "",
+                "VEH_SEATS": veh_seats.strip() if veh_seats else "",
+                "MODEL_YEAR": model_year.strip() if model_year else "",
+                "CHASSIS_NO": chassis_no.strip() if chassis_no else "",
+                "USE_OF_VEHICLE": use_of_vehicle.strip() if use_of_vehicle else "",
+                "PRODUCT": product.strip() if product else "",
+                "DRV_DOB": str(drv_dob) if drv_dob else "",
+                "DRV_DLI": str(drv_dli) if drv_dli else "",
+                "NATIONALITY": nationality.strip() if nationality else "",
+                "POLICY_NO": policy_no.strip() if policy_no else "",
+                "POLICYTYPE": policytype.strip() if policytype else "",
+                "SUM_INSURED": sum_insured.strip() if sum_insured else "",
+                "POL_ISSUE_DATE": str(pol_issue_date) if pol_issue_date else "",
+                "POL_EFF_DATE": str(pol_eff_date) if pol_eff_date else "",
+                "POL_EXPIRY_DATE": str(pol_expiry_date) if pol_expiry_date else ""
+            }
+
+            # Call premium prediction API
+            predicted_premium = predict_premium_api(prediction_data)
+            
+            if predicted_premium is not None:
+                st.session_state.predicted_premium = predicted_premium
+                st.rerun()  # Refresh to update the input field
+    
+    with col20:
+        # ✅ CLEAR PREMIUM BUTTON
+        if st.button("🗑️ Clear", type="secondary", use_container_width=True):
+            st.session_state.predicted_premium = 0
+            st.rerun()
     # ====================================================== INSURER DETAILS FORM SECTION ======================================================
     st.subheader("Insurer Details")
     selected_facility = st.selectbox("Select Facility *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)

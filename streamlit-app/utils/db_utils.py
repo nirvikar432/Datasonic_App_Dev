@@ -1,4 +1,5 @@
 from datetime import datetime, date
+import os
 import pyodbc
 import streamlit as st
 import time
@@ -11,10 +12,10 @@ def get_db_connection():
  
 
     # Define your connection parameters
-    server = 'datasonic.database.windows.net'
-    database = 'datasonicdb'
-    username = 'nirvikar'
-    password = 'datasonic@123'
+    server = os.getenv("SERVER")
+    database = os.getenv("DATABASE")
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
 
     # Create a connection string
     connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
