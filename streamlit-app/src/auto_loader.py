@@ -139,7 +139,7 @@ def display_upload_summary(document_records, json_data):
     st.subheader("Upload Summary")
     
     # Document details in expandable section
-    with st.expander("Document Details", expanded=True):
+    with st.expander("Document Details", expanded=false):
         for i, record in enumerate(document_records):
             col1, col2, col3 = st.columns(3)
             
@@ -198,10 +198,15 @@ def analyze_image_damage(image_data, filename):
         cv_endpoint = os.getenv("CV_ENDPOINT")
 
         try:
-            payload = {
-                "image_b64": image_data, 
-                "filename": filename
+            # payload = {
+            #     "image": image_data, 
+            #     "filename": filename
+            # }
+            image_bytes = base64.b64decode(image_data)
+            files = {
+                'file': (filename, image_bytes, 'image/jpeg')  # Use 'file' as field name
             }
+            
             
             headers = {
                 "Content-Type": "application/json",
@@ -209,7 +214,10 @@ def analyze_image_damage(image_data, filename):
             }
             
             with st.spinner("Analyzing damage with Computer Vision..."):
-                response = requests.post(cv_endpoint, json=payload, headers=headers, timeout=30)
+                # response = requests.post(cv_endpoint, json=payload, headers=headers, timeout=30)
+                response = requests.post(cv_endpoint, files=files, timeout=30)
+
+
             
             if response.status_code == 200:
                 return response.json()
@@ -228,267 +236,384 @@ def analyze_image_damage(image_data, filename):
         st.error(f"Error analyzing image: {str(e)}")
         return None
 
-def display_damage_analysis(analysis_result, filename):
-    """Display damage analysis results in a formatted way"""
-    if not analysis_result:
-        return
+# def display_damage_analysis(analysis_result, filename):
+#     """Display damage analysis results in a formatted way"""
+#     if not analysis_result:
+#         return
     
-    st.markdown("### Damage Analysis Results")
+#     st.markdown("### Damage Analysis Results")
     
-    # Create main container
-    with st.container():
-        # Header with filename
-        st.markdown(f"**    Analysis for:** `{filename}`")
-        st.markdown("---")
+#     # Create main container
+#     with st.container():
+#         # ✅ UPDATED: Extract data from the new nested structure
+#         analysis = analysis_result.get("analysis", analysis_result)  # Fallback to old structure
+#         detection_result = analysis.get("detection_result", {})
+#         severity_assessment = analysis.get("severity_assessment", {})
+#         api_filename = analysis.get("filename", filename)  # Use API filename if available
+#         annotated_image_b64 = analysis_result.get("annotated_image_b64", "")  # ✅ NEW: Get annotated image
         
-        # Get data from response
-        detection_result = analysis_result.get("detection_result", {})
-        severity_assessment = analysis_result.get("severity_assessment", {})
+#         # Header with filename (prefer API filename)
+#         st.markdown(f"**Analysis for:** `{api_filename}`")
+#         st.markdown("---")
 
-        # ✅ DEBUG: Show raw response structure
-        with st.expander("🔧 Debug: Raw API Response"):
-            st.json(analysis_result)
-        
-        # Severity Assessment (Top Priority)
-        if severity_assessment:
-            severity = severity_assessment.get("severity", "Unknown")
-            reason = severity_assessment.get("reason", "No reason provided")
-            
-            # Color code severity
-            severity_color = {
-                "High Severity": "🔴",
-                "Medium Severity": "🟡", 
-                "Low Severity": "🟢",
-                "Unknown": "⚪"
-            }
-            
-            severity_icon = severity_color.get(severity, "⚪")
-            
-            st.markdown(f"#### {severity_icon} Severity Assessment")
-            
-            # Severity badge
-            if "High" in severity:
-                st.error(f"**{severity}**")
-            elif "Medium" in severity:
-                st.warning(f"**{severity}**")
-            elif "Low" in severity:
-                st.success(f"**{severity}**")
-            else:
-                st.info(f"**{severity}**")
-            
-            # Detailed reason
-            with st.expander("🔍 Detailed Analysis Reason", expanded=True):
-                st.write(reason)
-        
-        st.markdown("---")
-        
-        # Damage Summary
-        damage_summary = detection_result.get("damage_summary", {})
-        total_detections = detection_result.get("total_detections", 0)
-        
-        if damage_summary or total_detections > 0:
-            st.markdown("#### Damage Summary")
-            
-            # Total detections metric
-            col1, col2, col3 = st.columns([1, 1, 2])
-            
-            with col1:
-                st.metric("Total Damage Points", total_detections)
-            
-            with col2:
-                damage_types = len([k for k, v in damage_summary.items() if v.get("count", 0) > 0])
-                st.metric("Damage Types", damage_types)
-            
-            with col3:
-                 # Severity indicator
-                    if severity_assessment.get("severity"):
-                        severity_value = severity_assessment.get("severity")
-                        st.metric("Overall Severity", severity_value)
-            
-            st.markdown("---")
-            
-            # Individual damage breakdown
-            st.markdown("#### Damage Breakdown")
-            
-            # Create damage cards
-            damage_icons = {
-                "dent": "🔨",
-                "broken_light": "💡",
-                "bumper_damage": "🚗",
-                "scratch": "✏️",
-                "crack": "💥",
-                "missing_part": "❌"
-            }
-            
-            # Calculate columns needed
-            damage_items = [(k, v) for k, v in damage_summary.items() if v.get("count", 0) > 0]
-            
-            if damage_items:
-                # Create columns for damage items
-                cols = st.columns(min(len(damage_items), 3))
+#         # ✅ NEW: Display annotated image if available
+#         if annotated_image_b64:
+#             st.markdown("#### 🎯 Annotated Damage Detection")
+#             try:
+#                 # Decode and display the annotated image
+#                 annotated_image_bytes = base64.b64decode(annotated_image_b64)
+#                 annotated_image = Image.open(io.BytesIO(annotated_image_bytes))
                 
-                for i, (damage_type, damage_info) in enumerate(damage_items):
-                    col_idx = i % 3
-                    with cols[col_idx]:
-                        count = damage_info.get("count", 0)
-                        icon = damage_icons.get(damage_type, "⚠️")
-                        
-                        # Format damage type name
-                        display_name = damage_type.replace("_", " ").title()
-                        
-                        # Create damage card
-                        st.markdown(f"""
-                        <div style="
-                            border: 2px solid #e0e0e0; 
-                            border-radius: 10px; 
-                            padding: 15px; 
-                            text-align: center; 
-                            background-color: #f9f9f9;
-                            margin: 5px 0;
-                        ">
-                            <h3 style="margin: 0; color: #333;">{icon}</h3>
-                            <h4 style="margin: 5px 0; color: #666;">{display_name}</h4>
-                            <h2 style="margin: 0; color: #d32f2f;">{count}</h2>
-                        </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.success("✅ No significant damage detected!")
-        
-        # Raw JSON data (expandable)
-        with st.expander("Raw Analysis Data"):
-            st.json(analysis_result)
-
-def get_severity_color_style(severity):
-    """Get CSS style for severity display"""
-    if "High" in severity:
-        return "background-color: #ffebee; border-left: 5px solid #f44336; padding: 10px;"
-    elif "Medium" in severity:
-        return "background-color: #fff8e1; border-left: 5px solid #ff9800; padding: 10px;"
-    elif "Low" in severity:
-        return "background-color: #e8f5e8; border-left: 5px solid #4caf50; padding: 10px;"
-    else:
-        return "background-color: #f5f5f5; border-left: 5px solid #9e9e9e; padding: 10px;"
-
-
-
-def display_single_claim_image(image_attachment, index):
-    """Display a single claim image with details and damage analysis"""
-    try:
-        filename = image_attachment.get("filename", f"Image_{index+1}")
-        content_type = image_attachment.get("content_type", "")
-        data = image_attachment.get("data", "")
-        
-        if data:
-            # Decode image
-            image_bytes = base64.b64decode(data)
-            image = Image.open(io.BytesIO(image_bytes))
-            
-            # Create columns for image and details
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                # Display large image
-                st.image(image, caption=filename, width=200)
-            
-            with col2:
-                # Image details
-                st.markdown("**📋 Image Details**")
-                st.write(f"**Filename:** {filename}")
-                st.write(f"**Type:** {content_type}")
-                st.write(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
-                st.write(f"**Dimensions:** {image.size[0]} x {image.size[1]}")
-                
-                # ✅ ADD CALCULATE SEVERITY BUTTON
-                if st.button("🔍 Calculate Severity", key=f"analyze_{index}", use_container_width=True, type="secondary"):
-                    # Send image to CV API for damage analysis
-                    analysis_result = analyze_image_damage(data, filename)
+#                 col1, col2 = st.columns([2, 1])
+#                 with col1:
+#                     st.image(annotated_image, caption=f"Damage Detection: {api_filename}", use_column_width=True)
+#                 with col2:
+#                     st.download_button(
+#                         label="📥 Download Annotated Image",
+#                         data=annotated_image_bytes,
+#                         file_name=f"annotated_{api_filename}",
+#                         mime="image/jpeg",
+#                         use_container_width=True
+#                     )
+#                     st.caption("Boxes show detected damage areas")
+#                     st.caption("Use this annotated image for detailed damage assessment")
                     
-                    if analysis_result:
-                        # Store result in session state for persistence
-                        analysis_key = f"damage_analysis_{index}"
-                        st.session_state[analysis_key] = analysis_result
-                        st.success("✅ Damage analysis completed!")
-                        st.rerun()  # Refresh to show results
-                    else:
-                        st.error("❌ Failed to analyze damage. Please try again.")
+#             except Exception as e:
+#                 st.error(f"Failed to display annotated image: {e}")
             
-            # ✅ DISPLAY ANALYSIS RESULTS IF AVAILABLE
-            analysis_key = f"damage_analysis_{index}"
-            if analysis_key in st.session_state:
-                st.markdown("---")
-                display_damage_analysis(st.session_state[analysis_key], filename)
+#             st.markdown("---")
+
+#         # ✅ DEBUG: Show raw response structure
+#         # with st.expander("🔧 Debug: Raw API Response"):
+#         #     st.json(analysis_result)
+        
+#         # Severity Assessment (Top Priority)
+#         if severity_assessment:
+#             severity = severity_assessment.get("severity", "Unknown")
+#             reason = severity_assessment.get("reason", "No reason provided")
+            
+#             # Color code severity
+#             severity_color = {
+#                 "High Severity": "🔴",
+#                 "Medium Severity": "🟡", 
+#                 "Low Severity": "🟢",
+#                 "Unknown": "⚪"
+#             }
+            
+#             severity_icon = severity_color.get(severity, "⚪")
+            
+#             st.markdown(f"#### {severity_icon} Severity Assessment")
+            
+#             # Severity badge
+#             if "High" in severity:
+#                 st.error(f"**{severity}**")
+#             elif "Medium" in severity:
+#                 st.warning(f"**{severity}**")
+#             elif "Low" in severity:
+#                 st.success(f"**{severity}**")
+#             else:
+#                 st.info(f"**{severity}**")
+            
+#             # Detailed reason
+#             # with st.expander("🔍 Detailed Analysis Reason", expanded=True):
+#             st.info(reason)
+        
+#         st.markdown("---")
+        
+#         # Damage Summary
+#         damage_summary = detection_result.get("damage_summary", {})
+#         total_detections = detection_result.get("total_detections", 0)
+        
+#         if damage_summary or total_detections > 0:
+#             st.markdown("#### Damage Summary")
+            
+#             # Total detections metric
+#             col1, col2, col3 = st.columns([1, 1, 2])
+            
+#             with col1:
+#                 st.metric("Total Damage Points", total_detections)
+            
+#             with col2:
+#                 damage_types = len([k for k, v in damage_summary.items() if v.get("count", 0) > 0])
+#                 st.metric("Damage Types", damage_types)
+            
+#             with col3:
+#                 # Severity indicator
+#                 if severity_assessment.get("severity"):
+#                     severity_value = severity_assessment.get("severity")
+#                     st.metric("Overall Severity", severity_value)
+            
+#             st.markdown("---")
+            
+#             # Individual damage breakdown
+#             st.markdown("#### Damage Breakdown")
+            
+#             # Create damage cards
+#             damage_icons = {
+#                 "dent": "🔨",
+#                 "broken_light": "💡",
+#                 "bumper_damage": "🚗",
+#                 "scratch": "✏️",
+#                 "crack": "💥",
+#                 "missing_part": "❌"
+#             }
+            
+#             # Calculate columns needed
+#             damage_items = [(k, v) for k, v in damage_summary.items() if v.get("count", 0) > 0]
+            
+#             if damage_items:
+#                 # Create columns for damage items
+#                 cols = st.columns(min(len(damage_items), 3))
                 
-                # Clear analysis button
-                if st.button("🗑️ Clear Analysis", key=f"clear_analysis_{index}"):
-                    del st.session_state[analysis_key]
-                    st.rerun()
+#                 for i, (damage_type, damage_info) in enumerate(damage_items):
+#                     col_idx = i % 3
+#                     with cols[col_idx]:
+#                         count = damage_info.get("count", 0)
+#                         icon = damage_icons.get(damage_type, "⚠️")
+                        
+#                         # Format damage type name
+#                         display_name = damage_type.replace("_", " ").title()
+                        
+#                         # Create damage card
+#                         st.markdown(f"""
+#                         <div style="
+#                             border: 2px solid #e0e0e0; 
+#                             border-radius: 10px; 
+#                             padding: 15px; 
+#                             text-align: center; 
+#                             background-color: #f9f9f9;
+#                             margin: 5px 0;
+#                         ">
+#                             <h3 style="margin: 0; color: #333;">{icon}</h3>
+#                             <h4 style="margin: 5px 0; color: #666;">{display_name}</h4>
+#                             <h2 style="margin: 0; color: #d32f2f;">{count}</h2>
+#                         </div>
+#                         """, unsafe_allow_html=True)
+#             else:
+#                 st.success("✅ No significant damage detected!")
+        
+#         # Raw JSON data (expandable)
+#         with st.expander("Raw Analysis Data"):
+#             st.json(analysis_result)
+
+
+# def get_severity_color_style(severity):
+#     """Get CSS style for severity display"""
+#     if "High" in severity:
+#         return "background-color: #ffebee; border-left: 5px solid #f44336; padding: 10px;"
+#     elif "Medium" in severity:
+#         return "background-color: #fff8e1; border-left: 5px solid #ff9800; padding: 10px;"
+#     elif "Low" in severity:
+#         return "background-color: #e8f5e8; border-left: 5px solid #4caf50; padding: 10px;"
+#     else:
+#         return "background-color: #f5f5f5; border-left: 5px solid #9e9e9e; padding: 10px;"
+
+
+
+# def display_single_claim_image(image_attachment, index):
+#     """Display a single claim image with details and damage analysis"""
+#     try:
+#         filename = image_attachment.get("filename", f"Image_{index+1}")
+#         content_type = image_attachment.get("content_type", "")
+#         data = image_attachment.get("data", "")
+        
+#         if data:
+#             # Decode image
+#             image_bytes = base64.b64decode(data)
+#             image = Image.open(io.BytesIO(image_bytes))
+            
+#             # Create columns for image and details
+#             col1, col2 = st.columns([3, 1])
+            
+#             with col1:
+#                 # Display large image
+#                 st.image(image, caption=filename, width=248)
+            
+#             with col2:
+#                 # Image details
+#                 st.markdown("**📋 Image Details**")
+#                 st.write(f"**Filename:** {filename}")
+#                 st.write(f"**Type:** {content_type}")
+#                 st.write(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
+#                 st.write(f"**Dimensions:** {image.size[0]} x {image.size[1]}")
+                
+#                 # ✅ ADD CALCULATE SEVERITY BUTTON
+#                 if st.button("🔍 Calculate Severity", key=f"analyze_{index}", use_container_width=True, type="secondary"):
+#                     # Send image to CV API for damage analysis
+#                     analysis_result = analyze_image_damage(data, filename)
                     
-    except Exception as e:
-        st.error(f"Failed to display image: {e}")
+#                     if analysis_result:
+#                         # Store result in session state for persistence
+#                         analysis_key = f"damage_analysis_{index}"
+#                         st.session_state[analysis_key] = analysis_result
+#                         st.success("✅ Damage analysis completed!")
+#                         st.rerun()  # Refresh to show results
+#                     else:
+#                         st.error("❌ Failed to analyze damage. Please try again.")
+            
+#             # ✅ DISPLAY ANALYSIS RESULTS IF AVAILABLE
+#             analysis_key = f"damage_analysis_{index}"
+#             if analysis_key in st.session_state:
+#                 st.markdown("---")
+#                 display_damage_analysis(st.session_state[analysis_key], filename)
+                
+#                 # Clear analysis button
+#                 if st.button("🗑️ Clear Analysis", key=f"clear_analysis_{index}"):
+#                     del st.session_state[analysis_key]
+#                     st.rerun()
+                    
+#     except Exception as e:
+#         st.error(f"Failed to display image: {e}")
 
 
 def display_severity_dashboard(num_images):
     """Display a dashboard summarizing all severity analyses"""
     analyses = []
     
-    # Collect all analyses
+    # ✅ FIXED: Collect all analyses with their indices as tuples
     for i in range(num_images):
         analysis_key = f"damage_analysis_{i}"
         if analysis_key in st.session_state:
-            analyses.append(st.session_state[analysis_key])
+            analyses.append((i, st.session_state[analysis_key]))  # Store as tuple (index, analysis_data)
     
     if not analyses:
         return
     
-    st.markdown("### Severity Dashboard")
+    st.markdown("### Damage Analysis Report")
     
-    # Summary metrics
-    col1, col2, col3, col4 = st.columns(4)
+    # # Summary metrics
+    # col1, col2, col3, col4 = st.columns(4)
     
-    high_severity = sum(1 for a in analyses if "High" in a.get("severity_assessment", {}).get("severity", ""))
-    medium_severity = sum(1 for a in analyses if "Medium" in a.get("severity_assessment", {}).get("severity", ""))
-    low_severity = sum(1 for a in analyses if "Low" in a.get("severity_assessment", {}).get("severity", ""))
-    total_damages = sum(a.get("detection_result", {}).get("total_detections", 0) for a in analyses)
+    # # ✅ FIXED: Handle new nested structure with proper tuple unpacking
+    # high_severity = sum(1 for _, a in analyses 
+    #                    if isinstance(a, dict) and "High" in a.get("analysis", a).get("severity_assessment", {}).get("severity", ""))
+    # medium_severity = sum(1 for _, a in analyses 
+    #                      if isinstance(a, dict) and "Medium" in a.get("analysis", a).get("severity_assessment", {}).get("severity", ""))
+    # low_severity = sum(1 for _, a in analyses 
+    #                   if isinstance(a, dict) and "Low" in a.get("analysis", a).get("severity_assessment", {}).get("severity", ""))
+    # total_damages = sum(a.get("analysis", a).get("detection_result", {}).get("total_detections", 0) 
+    #                    for _, a in analyses if isinstance(a, dict))
     
-    with col1:
-        st.metric("High Severity", high_severity, delta="🔴" if high_severity > 0 else None)
-    with col2:
-        st.metric("Medium Severity", medium_severity, delta="🟡" if medium_severity > 0 else None)
-    with col3:
-        st.metric("Low Severity", low_severity, delta="🟢" if low_severity > 0 else None)
-    with col4:
-        st.metric("Total Damage Points", total_damages)
+    # with col1:
+    #     st.metric("High Severity", high_severity, delta="🔴" if high_severity > 0 else None)
+    # with col2:
+    #     st.metric("Medium Severity", medium_severity, delta="🟡" if medium_severity > 0 else None)
+    # with col3:
+    #     st.metric("Low Severity", low_severity, delta="🟢" if low_severity > 0 else None)
+    # with col4:
+    #     st.metric("Total Damage Points", total_damages)
     
-    # Overall assessment
-    if high_severity > 0:
-        st.error("🚨 **Overall Assessment: High Priority** - Immediate attention required")
-    elif medium_severity > 0:
-        st.warning("⚠️ **Overall Assessment: Medium Priority** - Requires attention")
-    elif low_severity > 0:
-        st.success("✅ **Overall Assessment: Low Priority** - Minor issues detected")
-    else:
-        st.info("ℹ️ **Overall Assessment: No Analysis Available**")
+    # # Overall assessment
+    # if high_severity > 0:
+    #     st.error("🚨 **Overall Assessment: High Priority** - Immediate attention required")
+    # elif medium_severity > 0:
+    #     st.warning("⚠️ **Overall Assessment: Medium Priority** - Requires attention")
+    # elif low_severity > 0:
+    #     st.success("✅ **Overall Assessment: Low Priority** - Minor issues detected")
+    # else:
+    #     st.info("ℹ️ **Overall Assessment: No Analysis Available**")
+
+    # ✅ FIXED: Show annotated images gallery with proper data validation
+    if len(analyses) > 0:
+        # st.markdown("#### 🖼️ Annotated Images Gallery")
+        
+        # Create tabs for each analyzed image
+        tab_names = []
+        valid_analyses = []  # Store only valid analyses
+        
+        for i, (img_idx, analysis) in enumerate(analyses):
+            # ✅ SAFETY CHECK: Ensure analysis is a dictionary
+            if not isinstance(analysis, dict):
+                st.warning(f"Invalid analysis data for image {img_idx + 1}")
+                continue
+                
+            analysis_data = analysis.get("analysis", analysis)
+            if not isinstance(analysis_data, dict):
+                st.warning(f"Invalid analysis structure for image {img_idx + 1}")
+                continue
+                
+            filename = analysis_data.get("filename", f"Image_{img_idx+1}")
+            severity = analysis_data.get("severity_assessment", {}).get("severity", "Unknown")
+            severity_icon = "🔴" if "High" in severity else "🟡" if "Medium" in severity else "🟢" if "Low" in severity else "⚪"
+            tab_names.append(f"{severity_icon} {filename[:15]}...")
+            valid_analyses.append((img_idx, analysis))
+        
+        if len(tab_names) > 0:
+            tabs = st.tabs(tab_names)
+            
+            for tab_idx, (img_idx, analysis) in enumerate(valid_analyses):
+                with tabs[tab_idx]:
+                    # Get annotated image
+                    annotated_image_b64 = analysis.get("annotated_image_b64", "")
+                    analysis_data = analysis.get("analysis", analysis)
+                    filename = analysis_data.get("filename", f"Image_{img_idx+1}")
+                    
+                    if annotated_image_b64:
+                        try:
+                            # Display annotated image
+                            annotated_image_bytes = base64.b64decode(annotated_image_b64)
+                            annotated_image = Image.open(io.BytesIO(annotated_image_bytes))
+                            
+                            col_img, col_info = st.columns([1, 1])
+                            
+                            with col_img:
+                                st.image(annotated_image, width=512)
+
+                            with col_info:
+                                # Quick stats for this image
+                                severity = analysis_data.get("severity_assessment", {}).get("severity", "Unknown")
+                                total_detections = analysis_data.get("detection_result", {}).get("total_detections", 0)
+                                reason = analysis_data.get("severity_assessment", {}).get("reason", "Unknown")
+
+                                st.metric("Severity", severity)
+                                st.metric("Damage Points", total_detections)
+                                st.write("Reason: ", reason)
+
+                                # Download annotated image
+                                st.download_button(
+                                    label="📥 Download Annotated",
+                                    data=annotated_image_bytes,
+                                    file_name=f"annotated_{filename}",
+                                    mime="image/jpeg",
+                                    key=f"download_annotated_{img_idx}",
+                                    use_container_width=True
+                                )
+                                
+                                # Show full analysis
+                                # if st.button(f"📊 View Full Analysis", key=f"full_analysis_{img_idx}", use_container_width=True):
+                                #     with st.expander(f"Full Analysis: {filename}", expanded=True):
+                                #         display_damage_analysis(analysis, filename)
+                            
+                        except Exception as e:
+                            st.error(f"Failed to display annotated image: {e}")
+                    else:
+                        st.warning(f"No annotated image available for {filename}")
     
-    # Damage type aggregation
+    # ✅ FIXED: Damage type aggregation with proper tuple unpacking and validation
     all_damage_types = {}
-    for analysis in analyses:
-        damage_summary = analysis.get("detection_result", {}).get("damage_summary", {})
-        for damage_type, info in damage_summary.items():
-            count = info.get("count", 0)
-            if count > 0:
-                all_damage_types[damage_type] = all_damage_types.get(damage_type, 0) + count
+    for _, analysis in analyses:
+        # Handle new nested structure with safety checks
+        if isinstance(analysis, dict):
+            analysis_data = analysis.get("analysis", analysis)
+            if isinstance(analysis_data, dict):
+                damage_summary = analysis_data.get("detection_result", {}).get("damage_summary", {})
+                for damage_type, info in damage_summary.items():
+                    if isinstance(info, dict):
+                        count = info.get("count", 0)
+                        if count > 0:
+                            all_damage_types[damage_type] = all_damage_types.get(damage_type, 0) + count
     
     if all_damage_types:
         st.markdown("#### Damage Type Summary")
         damage_cols = st.columns(min(len(all_damage_types), 4))
         
         damage_icons = {
-            "dent": "🔨",
-            "broken_light": "💡", 
-            "bumper_damage": "🚗",
-            "scratch": "✏️",
-            "crack": "💥",
-            "missing_part": "❌"
+            "dent": " ",
+            "broken_light": " ", 
+            "bumper_damage": " ",
+            "scratch": " ",
+            "crack": " ",
+            "missing_part": " "
         }
         
         for i, (damage_type, count) in enumerate(all_damage_types.items()):
@@ -497,6 +622,109 @@ def display_severity_dashboard(num_images):
                 icon = damage_icons.get(damage_type, "⚠️")
                 display_name = damage_type.replace("_", " ").title()
                 st.metric(f"{icon} {display_name}", count)
+                
+# def display_attachments(attachments):
+#     """Display attachments from API response - images and download links for other files"""
+#     if not attachments or len(attachments) == 0:
+#         return
+    
+#     st.subheader("📎 Attachments from Upload")
+    
+#     # Group attachments by type
+#     images = []
+#     documents = []
+    
+#     for attachment in attachments:
+#         filename = attachment.get("filename", "Unknown file")
+#         content_type = attachment.get("content_type", "")
+#         data = attachment.get("data", "")
+        
+#         if content_type.startswith("image/"):
+#             images.append(attachment)
+#         else:
+#             documents.append(attachment)
+    
+#     # Display images with severity analysis
+#     if images:
+#         st.markdown("#### Images")
+        
+#         # ✅ ADD BULK ANALYSIS BUTTON
+#         if len(images) > 1:
+#             col1, col2 = st.columns([1, 3])
+#             with col1:
+#                 if st.button("🔍 Analyze All Images", key="bulk_analyze"):
+#                     progress_bar = st.progress(0)
+                    
+#                     for i, image_attachment in enumerate(images):
+#                         filename = image_attachment.get("filename", f"Image_{i+1}")
+#                         data = image_attachment.get("data", "")
+                        
+#                         if data:
+#                             analysis_result = analyze_image_damage(data, filename)
+#                             if analysis_result:
+#                                 st.session_state[f"damage_analysis_{i}"] = analysis_result
+                        
+#                         progress_bar.progress((i + 1) / len(images))
+                    
+#                     st.success(f"✅ Analyzed {len(images)} images!")
+#                     st.rerun()
+        
+#         # Create columns for image display
+#         cols = st.columns(min(len(images), 3))  # Max 3 images per row
+        
+#         for i, image_attachment in enumerate(images):
+#             col_idx = i % 3
+#             with cols[col_idx]:
+#                 try:
+#                     filename = image_attachment.get("filename", f"Image_{i+1}")
+#                     content_type = image_attachment.get("content_type", "")
+#                     data = image_attachment.get("data", "")
+                    
+#                     if data:
+#                         # Decode base64 image
+#                         image_bytes = base64.b64decode(data)
+#                         image = Image.open(io.BytesIO(image_bytes))
+                        
+#                         # Display image with filename
+#                         st.image(image, caption=filename, width=200)
+                        
+#                         # Quick analysis button
+#                         if st.button(f"🔍 Analyze", key=f"quick_analyze_{i}", use_container_width=True):
+#                             analysis_result = analyze_image_damage(data, filename)
+#                             if analysis_result:
+#                                 st.session_state[f"damage_analysis_{i}"] = analysis_result
+#                                 st.success("✅ Analysis complete!")
+#                                 st.rerun()
+                        
+#                         # Show severity if already analyzed
+#                         analysis_key = f"damage_analysis_{i}"
+#                         if analysis_key in st.session_state:
+#                             severity = st.session_state[analysis_key].get("severity_assessment", {}).get("severity", "Unknown")
+#                             if "High" in severity:
+#                                 st.error(f"⚠️ {severity}")
+#                             elif "Medium" in severity:
+#                                 st.warning(f"⚠️ {severity}")
+#                             elif "Low" in severity:
+#                                 st.success(f"✅ {severity}")
+#                             else:
+#                                 st.info(f"ℹ️ {severity}")
+                        
+#                         # Download button
+#                         st.download_button(
+#                             label=f"📥 Download",
+#                             data=image_bytes,
+#                             file_name=filename,
+#                             mime=content_type,
+#                             key=f"download_image_{i}",
+#                             use_container_width=True
+#                         )
+                        
+#                         # Display image info
+#                         st.caption(f"**Type:** {content_type}")
+#                         st.caption(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
+                        
+#                 except Exception as e:
+#                     st.error(f"Failed to display image {filename}: {e}")
 
 
 def display_attachments(attachments):
@@ -504,7 +732,7 @@ def display_attachments(attachments):
     if not attachments or len(attachments) == 0:
         return
     
-    st.subheader("📎 Attachments from Uploadaaa")
+    st.subheader("Attachment from Upload")
     
     # Group attachments by type
     images = []
@@ -522,7 +750,7 @@ def display_attachments(attachments):
     
     # Display images with severity analysis
     if images:
-        st.markdown("#### Images")
+        # st.markdown("#### Images")
         
         # ✅ ADD BULK ANALYSIS BUTTON
         if len(images) > 1:
@@ -562,7 +790,7 @@ def display_attachments(attachments):
                         image = Image.open(io.BytesIO(image_bytes))
                         
                         # Display image with filename
-                        st.image(image, caption=filename, width=200)
+                        st.image(image, width=512)
                         
                         # Quick analysis button
                         if st.button(f"🔍 Analyze", key=f"quick_analyze_{i}", use_container_width=True):
@@ -575,15 +803,20 @@ def display_attachments(attachments):
                         # Show severity if already analyzed
                         analysis_key = f"damage_analysis_{i}"
                         if analysis_key in st.session_state:
-                            severity = st.session_state[analysis_key].get("severity_assessment", {}).get("severity", "Unknown")
-                            if "High" in severity:
-                                st.error(f"⚠️ {severity}")
-                            elif "Medium" in severity:
-                                st.warning(f"⚠️ {severity}")
-                            elif "Low" in severity:
-                                st.success(f"✅ {severity}")
-                            else:
-                                st.info(f"ℹ️ {severity}")
+                            # ✅ FIXED: Handle new nested structure properly
+                            analysis_data = st.session_state[analysis_key]
+                            if isinstance(analysis_data, dict):
+                                analysis = analysis_data.get("analysis", analysis_data)  # Support both old and new structure
+                                severity = analysis.get("severity_assessment", {}).get("severity", "Unknown")
+                                
+                                if "High" in severity:
+                                    st.error(f"⚠️ {severity}")
+                                elif "Medium" in severity:
+                                    st.warning(f"⚠️ {severity}")
+                                elif "Low" in severity:
+                                    st.success(f"✅ {severity}")
+                                else:
+                                    st.info(f"ℹ️ {severity}")
                         
                         # Download button
                         st.download_button(
@@ -596,12 +829,11 @@ def display_attachments(attachments):
                         )
                         
                         # Display image info
-                        st.caption(f"**Type:** {content_type}")
-                        st.caption(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
+                        # st.caption(f"**Type:** {content_type}")
+                        # st.caption(f"**Size:** {len(image_bytes) / 1024:.1f} KB")
                         
                 except Exception as e:
                     st.error(f"Failed to display image {filename}: {e}")
-    
 
 
 def process_multiple_documents_with_api(file_paths, file_names):
@@ -726,204 +958,6 @@ def process_multiple_documents_with_api(file_paths, file_names):
         # Re-raise the exception instead of swallowing it
         raise Exception(f"Error processing documents with API: {e}")
 
-# def process_multiple_documents_with_api(file_paths, file_names):
-#     """Send multiple documents to API for processing and return the extracted JSON data"""
-#     try:
-#         # Prepare the files and data for the API request
-#         files = {}
-        
-#         # Add each file to the files dictionary with a different key
-#         for i, (file_path, file_name) in enumerate(zip(file_paths, file_names)):
-#             with open(file_path, 'rb') as f:
-#                 # Create a unique key for each file (file1, file2, etc.)
-#                 files[f'file{i+1}'] = (file_name, f.read(), 'application/octet-stream')
-        
-#         params = {
-#             'code': API_CODE
-#         }
-        
-#         # Make the API request
-#         response = requests.post(API_URL, files=files, params=params)
-        
-#         # Check if the request was successful
-#         if response.status_code == 200:
-#             return response.json()
-#         else:
-#             raise Exception(f"API Error: {response.status_code} - {response.text}")
-            
-#     except Exception as e:
-#         raise Exception(f"Error processing documents with API: {e}")
-
-# def upload_document():
-#     st.header("Document Upload")
-
-#     # Check if there was a successful submission
-#     if "form_submitted" in st.session_state and st.session_state.form_submitted:
-#         # Clear the flag and all related data
-#         st.session_state.form_submitted = False
-#         if "json_data" in st.session_state:
-#             del st.session_state.json_data
-#         if "document_guids" in st.session_state:
-#             del st.session_state.document_guids
-#         st.success("Form submitted successfully!")
-#         st.rerun()
-
-#     with st.form("document_upload_form"):
-#         uploaded_files = st.file_uploader("Upload File *", type=["pdf", "docx", "eml"], accept_multiple_files=True)
-#         submit = st.form_submit_button("Upload Document")
-#         back = st.form_submit_button("Back")
-        
-#         if submit:
-#             if not uploaded_files or len(uploaded_files) == 0:
-#                 st.error("Please upload a file.")
-#             else:
-#                 try:
-#                     with st.spinner("Uploading documents..."):
-#                         # Create temp files for all uploaded files
-#                         temp_file_paths = []
-#                         file_names = []
-#                         file_hashes = []
-#                         guids = []
-#                         document_records = []
-                        
-#                         # Process each file in the list
-#                         for i, uploaded_file in enumerate(uploaded_files):
-#                             # Save uploaded file to temp location
-#                             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-#                                 temp_file.write(uploaded_file.read())
-#                                 temp_file_paths.append(temp_file.name)
-                            
-#                             # Generate unique identifier for each file
-#                             # Updated: Insert datetime before file extension
-#                             file_name_without_ext = os.path.splitext(uploaded_file.name)[0]
-#                             file_extension = os.path.splitext(uploaded_file.name)[1]
-#                             # current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
-#                             original_filename = f"{file_name_without_ext}{file_extension}"
-
-#                             guid = str(uuid.uuid4())
-#                             guids.append(guid)
-#                             file_hash = compute_file_hash(temp_file_paths[-1])
-#                             file_hashes.append(file_hash)
-#                             file_names.append(uploaded_file.name)
-
-#                             # Create unique filename with timestamp
-#                             # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-#                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]  # Include microseconds, truncate to milliseconds
-#                             unique_filename = f"{timestamp}_{file_hash[:8]}_{guid[:4]}{file_extension}"
-
-#                             # Upload to Azure Blob Storage
-#                             metadata = {
-#                                 "guid": guid,
-#                                 "original_filename": original_filename,
-#                                 "Unique_filename": unique_filename,
-#                                 "file_hash": file_hash,
-#                                 "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#                             }
-                            
-#                             blob_url = upload_to_blob(
-#                                 file_path=temp_file_paths[-1],
-#                                 blob_name=unique_filename,  # ← NOW uses enhanced filename
-#                                 metadata=metadata
-#                             )
-
-#                             # Prepare document record (without JSON data for now)
-#                             document_record = {
-#                                 "Hash": file_hash,
-#                                 "Unique_File_Name": unique_filename,
-#                                 "Original_File_Name": original_filename,  # Now formatted as filename_20250111_143045.pdf
-#                                 "GUID": guid,
-#                                 "Blob_Link": blob_url,
-#                                 "UploadDate": datetime.now(),
-#                                 # .strftime("%Y-%m-%d %H:%M:%S"),
-#                                 "ProcessingStatus": "Processing"
-#                             }
-#                             document_records.append(document_record)
-
-#                         # Store GUIDs in session state for later use in form submission
-#                         st.session_state.document_guids = guids
-                        
-#                         # Process all files with API together
-#                         st.session_state.json_data = None
-#                         with st.spinner("Extracting data from documents..."):
-#                             # process_multiple_documents_with_api to handle multiple files
-#                             json_data = process_multiple_documents_with_api(
-#                                 file_paths=temp_file_paths,
-#                                 file_names=file_names
-#                             )
-                            
-#                             # Store in session state
-#                             st.session_state.json_data = json_data
-
-#                          # Step 3: Extract Type and Transaction Type from JSON
-#                         document_type = None
-#                         transaction_type = None
-#                         reference_number = None  # NEW: For Policy/Claim linking
-
-
-#                         if "classification" in json_data:
-#                             classification = json_data.get("classification", {})
-#                             document_type = classification.get("category", "")
-#                             transaction_type = classification.get("subcategory", "")
-#                         elif "Type" in json_data:
-#                             transaction_type = json_data.get("Type", "")
-#                             # Map transaction type to document type
-#                             if "Policy" in transaction_type or "Business" in transaction_type:
-#                                 document_type = "policy"
-#                             elif "Claim" in transaction_type:
-#                                 document_type = "claim"
-
-#                         # NEW: Extract reference numbers based on document type
-#                         extracted_fields = json_data.get("extracted_fields", {})
-                        
-#                         if document_type == "policy":
-#                             # For policy documents, extract POLICY_NO
-#                             reference_number = extracted_fields.get("POLICY_NO", None)
-#                         elif document_type == "claim":
-#                             # For claim documents, extract CLAIM_NO
-#                             reference_number = extracted_fields.get("CLAIM_NO", None)
-                        
-#                         # Fallback: Try to extract from top level if not found in extracted_fields
-#                         if not reference_number:
-#                             if document_type == "policy":
-#                                 reference_number = json_data.get("POLICY_NO", None)
-#                             elif document_type == "claim":
-#                                 reference_number = json_data.get("CLAIM_NO", None)
-
-#                         # Step 4: Update document records with JSON data and insert into database
-#                         for i, record in enumerate(document_records):
-#                             record.update({
-#                                 "JSON": json.dumps(json_data),
-#                                 "Type": document_type,
-#                                 "Transaction_Type": transaction_type,
-#                                 "Reference_Number": reference_number,  # NEW: Add reference number Policy_No or Claim_No
-#                                 "ProcessingStatus": "Completed"
-#                             })
-                            
-#                             # Insert into UploadDocument table
-#                             try:
-#                                 insert_upload_document(record)
-#                                 st.success(f"Document {record['Original_File_Name']} logged successfully!")
-#                             except Exception as db_error:
-#                                 st.warning(f"Failed to log document {record['Original_File_Name']}: {db_error}")
-                        
-#                         # Clean up temp files
-#                         for file_path in temp_file_paths:
-#                             os.remove(file_path)
-                        
-#                         st.success(f"{len(uploaded_files)} document(s) uploaded successfully!")
-                        
-#                         display_upload_summary(document_records, json_data)
-
-#                 except Exception as e:
-#                     st.error(f"Upload failed: {e}")
-        
-#         if back:
-#             clear_session_state()
-#             st.session_state.submission_mode = None
-#             if "json_data" in st.session_state:
-#                 del st.session_state.json_data
-#             st.rerun()
-#     return st.session_state.json_data if 'json_data' in st.session_state else None
 
 def upload_document():
     correlation_id = str(uuid.uuid4())
@@ -1283,7 +1317,7 @@ def fetch_json_data():
                 **extracted_fields  # Add all extracted fields directly
             }
             
-            st.write("Extracted JSON Data:", normalized_data)
+            # st.write("Extracted JSON Data:", normalized_data)
             # ✅ DISPLAY ATTACHMENTS IF PRESENT
             if "attachments" in data:
                 display_attachments(data["attachments"])
@@ -1331,7 +1365,7 @@ def fetch_json_data():
                     "Type": subcategory if subcategory else "New Business",
                     **extracted_fields  # Add all extracted fields directly
                 }
-                st.write("Extracted JSON Data:", normalized_data)
+                # st.write("Extracted JSON Data:", normalized_data)
                 return normalized_data
         else:
             st.write("JSON Data Loaded:", data)
@@ -2105,7 +2139,6 @@ def show_policy_form():
                 st.rerun()
 
         elif st.session_state.form_to_show == "claim_update_form":
-            st.markdown("### CLAIM UPDATE FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_update_data
 
@@ -2117,8 +2150,7 @@ def show_policy_form():
                     images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
                     
                     if images:
-                        st.markdown("#### 📸 Updated Claim Images & Damage Analysis")
-                        st.info("💡 Uploaded images can help assess updated damage and support claim processing.")
+                        # st.markdown("#### 📸 Updated Claim Images & Damage Analysis")
 
                         # Display severity dashboard if any analyses exist
                         display_severity_dashboard(len(images))
@@ -2127,24 +2159,15 @@ def show_policy_form():
                         # display_attachments(attachments)
                         
                         st.markdown("---")  # Separator between images and form
+            st.markdown("### CLAIM UPDATE FORM")
+
 
             st.markdown(f"#### Update Claim: {claim_data.get('CLAIM_NO', '')}")
             with st.form("update_claim_form"):
-                # Editable fields
-                # intimated_amount = st.number_input("Intimated Amount", 
-                #                                 value=float(defaults.get("INTIMATED_AMOUNT", 0)), 
-                #                                 min_value=0.0, format="%.2f")
-
                 intimated_amount_value = defaults.get("INTIMATED_AMOUNT")
                 intimated_amount = st.number_input("Intimated Amount", 
                                                 value=float(intimated_amount_value) if intimated_amount_value is not None else 0.0, 
                                                 min_value=0.0, format="%.2f")
-                
-                
-                # intimated_sf = st.number_input("Intimated SF", 
-                #                             value=float(defaults.get("INTIMATED_SF", 0)), 
-                #                             min_value=0.0, format="%.2f")
-
                 intimated_sf_value = defaults.get("INTIMATED_SF")
                 intimated_sf = st.number_input("Intimated SF", 
                                             value=float(intimated_sf_value) if intimated_sf_value is not None else 0.0, 
@@ -2259,7 +2282,7 @@ def show_policy_form():
                     st.rerun()
 
         elif st.session_state.form_to_show == "claim_close_form":
-            st.markdown("### CLAIM CLOSURE FORM")
+            # st.markdown("### CLAIM CLOSURE FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_close_data
 
@@ -2281,6 +2304,8 @@ def show_policy_form():
                         # display_attachments(attachments)
                         
                         st.markdown("---")  # Separator between images and form
+            st.markdown("### CLAIM CLOSURE FORM")
+
             
             with st.form("close_claim_form"):
                 # Closure fields
@@ -2421,7 +2446,7 @@ def show_policy_form():
                     st.rerun()
 
         elif st.session_state.form_to_show == "claim_reopen_form":
-            st.markdown("### CLAIM REOPEN FORM")
+            # st.markdown("### CLAIM REOPEN FORM")
             defaults = st.session_state.get("form_defaults", {})
             claim_data = st.session_state.claim_reopen_data
 
@@ -2443,6 +2468,7 @@ def show_policy_form():
                         # display_attachments(attachments)
                         
                         st.markdown("---")  # Separator between images and form
+            st.markdown("### CLAIM REOPEN FORM")
             
             with st.form("reopen_claim_form"):
                 # Reopen fields
@@ -2570,7 +2596,7 @@ def show_policy_form():
                     st.rerun()
 
 def show_claims_form(defaults):
-    st.markdown("### NEW CLAIM FORM")
+    # st.markdown("### NEW CLAIM FORM")
 
     # ✅ DISPLAY CLAIM IMAGES AT TOP IF AVAILABLE
     if "json_data" in st.session_state and st.session_state.json_data:
@@ -2592,38 +2618,38 @@ def show_claims_form(defaults):
                 st.markdown("---")  # Separator between images and form
                 
                 # Display images in a grid
-                cols = st.columns(min(len(images), 4))  # Max 4 images per row
+                # cols = st.columns(min(len(images), 4))  # Max 4 images per row
                 
-                for i, image_attachment in enumerate(images):
-                    col_idx = i % 4
-                    with cols[col_idx]:
-                        try:
-                            filename = image_attachment.get("filename", f"Claim_Image_{i+1}")
-                            data = image_attachment.get("data", "")
-                            content_type = image_attachment.get("content_type", "")
+                # for i, image_attachment in enumerate(images):
+                #     col_idx = i % 4
+                #     with cols[col_idx]:
+                #         try:
+                #             filename = image_attachment.get("filename", f"Claim_Image_{i+1}")
+                #             data = image_attachment.get("data", "")
+                #             content_type = image_attachment.get("content_type", "")
                             
-                            if data:
-                                # Decode and display image
-                                image_bytes = base64.b64decode(data)
-                                image = Image.open(io.BytesIO(image_bytes))
+                #             if data:
+                #                 # Decode and display image
+                #                 image_bytes = base64.b64decode(data)
+                #                 image = Image.open(io.BytesIO(image_bytes))
                                 
-                                # Display with reduced size for form
-                                st.image(image, caption=filename, width=200)
+                #                 # Display with reduced size for form
+                #                 st.image(image, caption=filename, width=200)
                                 
-                                # Quick download button
-                                st.download_button(
-                                    label="📥",
-                                    data=image_bytes,
-                                    file_name=filename,
-                                    mime=content_type,
-                                    key=f"claim_img_{i}",
-                                    help=f"Download {filename}"
-                                )
+                #                 # Quick download button
+                #                 st.download_button(
+                #                     label="📥",
+                #                     data=image_bytes,
+                #                     file_name=filename,
+                #                     mime=content_type,
+                #                     key=f"claim_img_{i}",
+                #                     help=f"Download {filename}"
+                #                 )
                                 
-                        except Exception as e:
-                            st.error(f"Failed to display {filename}: {e}")
+                #         except Exception as e:
+                #             st.error(f"Failed to display {filename}: {e}")
                 
-                st.markdown("---")  # Separator between images and form
+                # st.markdown("---")  # Separator between images and form
 
     # Generate claim_no if not present
     if "claim_no" not in st.session_state:
@@ -2701,7 +2727,7 @@ def show_claims_form(defaults):
             # Continue to form if there's an error checking (failsafe)
 
     ###### Early Claim Number Validation End
-
+    st.markdown("### NEW CLAIM FORM")
     with st.form("new_claim_form"):
         col1, col2 = st.columns(2)
         with col1:
