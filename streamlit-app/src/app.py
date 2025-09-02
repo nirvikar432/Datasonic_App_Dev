@@ -267,8 +267,8 @@ def main():
     #     computer_Vision()
     with tabs[3]:
         # log_viewer_tab()
-        # chatbot_interface()
-        chatbotAi()
+        chatbot_interface()
+        # chatbotAi()
     #     charts_tab()
 
     # Add footer at the bottom
