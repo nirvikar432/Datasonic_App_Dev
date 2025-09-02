@@ -1,0 +1,1853 @@
+{
+  "generated_at_utc": "2025-08-26T12:29:48Z",
+  "server": "77igns4c4tquvpkcugm4f6ldka-fwtjmerwp2aujjmgnbxi2symzq.datawarehouse.fabric.microsoft.com",
+  "database": "GoldLakehouse",
+  "incomplete": true,
+  "warnings": [
+    "Row counts unavailable via sys.dm_db_partition_stats: Execution failed on sql '\n    SELECT \n        p.object_id,\n        SUM(CASE WHEN p.index_id IN (0,1) THEN p.row_count ELSE 0 END) AS row_count\n    FROM sys.dm_db_partition_stats AS p\n    GROUP BY p.object_id;\n    ': ('42000', \"[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]DMV (Dynamic Management View) 'dm_db_partition_stats' is not supported. (15871) (SQLExecDirectW)\")"
+  ],
+  "schemas": [
+    {
+      "schema_name": "dbo",
+      "tables": [
+        {
+          "table_name": "dim_coverage",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "sum_insured_buildings",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "sum_insured_contents",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "last_ann_prem_gross",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "buildings_cover",
+              "data_type": "bit",
+              "max_length": 1,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "contents_cover",
+              "data_type": "bit",
+              "max_length": 1,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "spec_sum_insured",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "spec_item_prem",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "unspec_hrp_prem",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "coverage_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_coverage_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "buildings_cover",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "contents_cover",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "coverage_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_customer",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "p1_dob",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_mar_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_emp_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_pt_emp_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_sex",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "occ_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "customer_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_customer_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "p1_dob",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_mar_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "p1_sex",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "customer_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_date",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "date_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "full_date",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "day",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "month",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "month_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "quarter",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "year",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "is_weekend",
+              "data_type": "bit",
+              "max_length": 1,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_location",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "risk_rated_area_b",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "risk_rated_area_c",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "location_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_location_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "risk_rated_area_b",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "risk_rated_area_c",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "location_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_payment",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "payment_method",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "is_constant_payment_frequency",
+              "data_type": "bit",
+              "max_length": 1,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "payment_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_payment_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "payment_method",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "payment_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_policy_status",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "pol_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "status_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_policy_status_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "pol_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_status_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_product",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "product_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "lob",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "product_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "product_code",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_property",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "prop_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "yearbuilt",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "ownership_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "bedrooms",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "roof_construction",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "wall_construction",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "max_days_unocc",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "property_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dim_property_home",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "bedrooms",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "yearbuilt",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "roof_construction",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "wall_construction",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "prop_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "property_key",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimbroker_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "broker_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "broker_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "modified_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimclaims_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "claim_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "account_code",
+              "data_type": "smallint",
+              "max_length": 2,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "date_of_intimation",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "date_of_accident",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "place_of_loss",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "claim_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "intimated_amount",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "intimated_sf",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "product",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 10,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "claim_stage",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 11,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "claim_status",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 12,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "final_settlement_amount",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 13,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "update_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 14,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimcustomer_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "cust_id",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "drv_dob",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "drv_dli",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "nationality",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "modified_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimfacility_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "facility_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "facility_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "modified_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimpolicy_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "policy_number",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "customer_id",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "executive",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "body",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "make",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "model",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "use_of_vehicle",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "model_year",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "chassis_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "region",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 10,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_effective_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 11,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_expiry_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 12,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "sum_insured",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 13,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_issue_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 14,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "premium",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 15,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "product",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 16,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_type",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 17,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "broker_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 18,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "broker_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 19,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "facility_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 20,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "facility_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 21,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "dimvehicle_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "chassis_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "body",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "make",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "model",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "model_year",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "regn",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "use_of_vehicle",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "veh_seats",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "modified_date",
+              "data_type": "datetime2",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "fact_policy",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "quote_date",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "cover_start",
+              "data_type": "date",
+              "max_length": 3,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_number",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_duration_days",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "customer_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "property_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "location_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "payment_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "coverage_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_status_key",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 10,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        },
+        {
+          "table_name": "factpc_auto",
+          "object_type": "TABLE",
+          "row_count": null,
+          "columns": [
+            {
+              "column_name": "entity_id",
+              "data_type": "bigint",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 1,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "cust_id",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 2,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "make",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 3,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "model",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 4,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "chassis_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 5,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "premium",
+              "data_type": "int",
+              "max_length": 4,
+              "is_nullable": true,
+              "ordinal_position": 6,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "regn",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 7,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policy_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 8,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "sum_insured",
+              "data_type": "float",
+              "max_length": 8,
+              "is_nullable": true,
+              "ordinal_position": 9,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "product",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 10,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "policytype",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 11,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "broker_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 12,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "broker_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 13,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "facility_id",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 14,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "facility_name",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 15,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "account_code",
+              "data_type": "smallint",
+              "max_length": 2,
+              "is_nullable": true,
+              "ordinal_position": 16,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            },
+            {
+              "column_name": "claim_no",
+              "data_type": "varchar",
+              "max_length": 8000,
+              "is_nullable": true,
+              "ordinal_position": 17,
+              "is_primary_key": false,
+              "is_unique": false,
+              "is_computed": false,
+              "default_definition": null
+            }
+          ],
+          "primary_key": [],
+          "unique_constraints": [],
+          "foreign_keys": []
+        }
+      ]
+    }
+  ]
+}

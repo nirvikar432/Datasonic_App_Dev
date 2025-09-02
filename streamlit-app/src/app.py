@@ -13,6 +13,7 @@ from edit_tabs import new_submission_tab
 from charts_tab import charts_tab
 from toba import toba_tab
 from chatbot import chatbot_interface  # ✅ ADD CHATBOT IMPORT
+from sql_alchemy_v2 import chatbotAi
 
 
 # --- Custom Theme ---  

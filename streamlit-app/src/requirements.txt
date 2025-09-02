@@ -9,4 +9,11 @@ psutil>=5.9.0
 streamlit-chat
 pymssql
 python-dotenv
+sqlalchemy 
+python-dotenv 
+streamlit 
+langchain 
+langchain-community 
+langchain-openai
+
 
