@@ -4,7 +4,7 @@ from db_utils import fetch_data
 
 def claims_tab():
     st.header("Claims Management")
-    claims_query = "SELECT TOP 20 * FROM New_Claims"
+    claims_query = "SELECT TOP 100 * FROM New_Claims"
     claims = fetch_data(claims_query)
     df_claims = pd.DataFrame(claims) if claims else pd.DataFrame()
 
