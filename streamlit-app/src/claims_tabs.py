@@ -3,7 +3,7 @@ import pandas as pd
 from db_utils import fetch_data
 
 def claims_tab():
-    st.header("Claims Management")
+    st.header("Claims Overview")
     claims_query = "SELECT TOP 100 * FROM New_Claims"
     claims = fetch_data(claims_query)
     df_claims = pd.DataFrame(claims) if claims else pd.DataFrame()

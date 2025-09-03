@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def policy_tab():
-    st.header("Policy Management")
+    st.header("Policy Overview")
     policy_query = "SELECT TOP 100 * FROM New_Policy"
     policies = fetch_data(policy_query)
     df_policies = pd.DataFrame(policies) if policies else pd.DataFrame()

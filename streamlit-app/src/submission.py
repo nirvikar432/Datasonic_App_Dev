@@ -17,8 +17,8 @@ def submission_tab():
     with col1:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">Policy Management</h4>
-            <p>View insurance policies. Track policy details, premiums, and renewal dates.</p>
+            <h4 style="color: #23E4BA;">Policy Overview</h4>
+            <p>View and track policy details, premiums, and renewal dates.</p>
         </div>
         """, unsafe_allow_html=True)
         policy_button = st.button("Policy", key="policy_button", use_container_width=True, type="primary")
@@ -26,8 +26,8 @@ def submission_tab():
     with col2:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">Claims Management</h4>
-            <p>View insurance claims. Track claim status, payments, and settlement details.</p>
+            <h4 style="color: #23E4BA;">Claims Overview</h4>
+            <p>Monitor claim status, payments, and settlement progress.</p>
         </div>
         """, unsafe_allow_html=True)
         claims_button = st.button("Claims", key="claims_button", use_container_width=True, type="primary")

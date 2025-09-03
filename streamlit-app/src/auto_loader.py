@@ -28,9 +28,13 @@ from policy_forms import (
 from db_utils import (
     insert_policy, fetch_data, insert_claim, insert_upload_document, update_document_unique_id
 )
-from db_utils import log_app_event, log_document_operation, log_error, log_performance
-
-
+from db_utils import (
+    insert_policy, fetch_data, insert_claim, insert_upload_document, update_document_unique_id,
+    log_app_event, log_document_operation, log_error, log_performance, insert_cv_metadata,
+    update_cv_metadata_claim_link, fetch_cv_metadata_by_claim_uid, fetch_cv_metadata_by_reference,
+    insert_ml_prediction_metadata, update_ml_prediction_policy_link, 
+    fetch_ml_predictions_by_policy_uid, fetch_ml_predictions_by_reference
+)
 
 dotenv.load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -100,6 +104,10 @@ def _fetch_latest_claims(claim_no: str):
 
 
 
+
+
+
+
 # Add this helper function at the top of your file after imports
 def clear_session_state():
     """Clear all form-related session state variables"""
@@ -139,7 +147,7 @@ def display_upload_summary(document_records, json_data):
     st.subheader("Upload Summary")
     
     # Document details in expandable section
-    with st.expander("Document Details", expanded=false):
+    with st.expander("Document Details", expanded=False):
         for i, record in enumerate(document_records):
             col1, col2, col3 = st.columns(3)
             
@@ -176,6 +184,12 @@ def compute_file_hash(file_path):
         hasher.update(f.read())
     return hasher.hexdigest()
 
+def compute_image_hash(image_bytes):
+    """Compute SHA-256 hash of image bytes"""
+    hasher = hashlib.sha256()
+    hasher.update(image_bytes)
+    return hasher.hexdigest()
+
 def upload_to_blob(file_path, blob_name, metadata):
     """Upload file to Azure Blob Storage"""
     blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
@@ -187,6 +201,30 @@ def upload_to_blob(file_path, blob_name, metadata):
 
     return blob_client.url
 
+
+def upload_image_to_blob_storage(image_bytes, blob_name, metadata):
+    """Upload image to Azure Blob Storage with metadata"""
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+        blob_client = blob_service_client.get_blob_client(
+            container=AZURE_CONTAINER_NAME, 
+            blob=blob_name
+        )
+        
+        # Upload the blob with metadata
+        blob_client.upload_blob(
+            image_bytes, 
+            overwrite=True,
+            metadata=metadata,
+            content_settings=ContentSettings(content_type="image/jpeg")
+        )
+        
+        # Return the blob URL
+        return blob_client.url
+        
+    except Exception as e:
+        st.error(f"Failed to upload to blob storage: {e}")
+        return None
 
 ####################CV END POINT#######################
 
@@ -235,6 +273,227 @@ def analyze_image_damage(image_data, filename):
     except Exception as e:
         st.error(f"Error analyzing image: {str(e)}")
         return None
+    
+##################
+def analyze_image_damage_with_storage(image_data, filename, created_by="system", claim_uid=None):
+    """Send image to CV endpoint for damage analysis and store results in database and blob"""
+    try:
+        # Generate unique identifiers
+        normal_guid = str(uuid.uuid4())
+        annotated_guid = str(uuid.uuid4())
+        
+        # Create unique names with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:17]
+        file_extension = filename.split('.')[-1] if '.' in filename else 'jpg'
+        normal_unique_name = f"normal_{timestamp}_{normal_guid[:8]}.{file_extension}"
+        annotated_unique_name = f"annotated_{timestamp}_{annotated_guid[:8]}.{file_extension}"
+        
+        # Call CV API
+        cv_response = analyze_image_damage(image_data, filename)
+        
+        if cv_response:
+            # Decode normal image and compute hash
+            normal_blob_link = None
+            normal_image_hash = None
+            if image_data:
+                try:
+                    # Decode and upload normal image
+                    image_bytes = base64.b64decode(image_data)
+                    normal_image_hash = compute_image_hash(image_bytes)
+                    
+                    # Create metadata for normal image
+                    normal_metadata = {
+                        "type": "normal_image",
+                        "guid": normal_guid,
+                        "original_filename": filename,
+                        "unique_filename": normal_unique_name,
+                        "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "file_size": str(len(image_bytes)),
+                        "claim_uid": claim_uid or "",
+                        "created_by": created_by,
+                        "image_type": "damage_assessment",
+                        "hash": normal_image_hash
+                    }
+                    
+                    normal_blob_link = upload_image_to_blob_storage(
+                        image_bytes, 
+                        normal_unique_name, 
+                        normal_metadata
+                    )
+                    
+                    if normal_blob_link:
+                        st.success(f"✅ Normal image uploaded to blob storage")
+                    
+                except Exception as blob_error:
+                    st.warning(f"Failed to upload normal image to blob: {blob_error}")
+            
+            # Upload annotated image to blob storage
+            annotated_blob_link = None
+            annotated_image_hash = None
+            annotated_image_b64 = cv_response.get("annotated_image_b64")
+            if annotated_image_b64:
+                try:
+                    # Decode and upload annotated image
+                    annotated_bytes = base64.b64decode(annotated_image_b64)
+                    annotated_image_hash = compute_image_hash(annotated_bytes)
+                    
+                    # Create metadata for annotated image
+                    annotated_metadata = {
+                        "type": "annotated_image",
+                        "guid": annotated_guid,
+                        "original_filename": f"annotated_{filename}",
+                        "unique_filename": annotated_unique_name,
+                        "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "file_size": str(len(annotated_bytes)),
+                        "claim_uid": claim_uid or "",
+                        "created_by": created_by,
+                        "image_type": "damage_assessment_annotated",
+                        "hash": annotated_image_hash
+                    }
+                    
+                    annotated_blob_link = upload_image_to_blob_storage(
+                        annotated_bytes, 
+                        annotated_unique_name, 
+                        annotated_metadata
+                    )
+                    
+                    if annotated_blob_link:
+                        st.success(f"✅ Annotated image uploaded to blob storage")
+                    
+                except Exception as blob_error:
+                    st.warning(f"Failed to upload annotated image to blob: {blob_error}")
+            
+            # Extract CV analysis data from response
+            analysis = cv_response.get("analysis", cv_response)
+            detection_result = analysis.get("detection_result", {})
+            severity_assessment = analysis.get("severity_assessment", {})
+            damage_summary = detection_result.get("damage_summary", {})
+
+            cv_analysis_json = {
+                "analysis": {
+                    "detection_result": {
+                        "damage_summary": damage_summary,
+                        "total_detections": detection_result.get("total_detections", 0)
+                    },
+                    "filename": analysis.get("filename", filename),
+                    "severity_assessment": {
+                        "reason": severity_assessment.get("reason", ""),
+                        "severity": severity_assessment.get("severity", "")
+                    }
+                }
+                # ✅ NOTE: Deliberately excluding "annotated_image_b64" to save space
+            }
+            
+            # Prepare CV metadata for database storage
+            cv_metadata = {
+                "normal_image_hash": normal_image_hash,
+                "annotated_image_hash": annotated_image_hash,
+                "normal_image_name": filename,
+                "normal_image_unique_name": normal_unique_name,
+                "annotated_image_name": f"annotated_{filename}",
+                "annotated_image_unique_name": annotated_unique_name,
+                "normal_image_blob_link": normal_blob_link,
+                "annotated_image_blob_link": annotated_blob_link,
+                "json": json.dumps(cv_analysis_json) ,  # Store complete JSON
+                "normal_image_guid": normal_guid,
+                "annotated_image_guid": annotated_guid,
+                "total_detections": detection_result.get("total_detections", 0),
+                "severity": severity_assessment.get("severity", ""),
+                "severity_reason": severity_assessment.get("reason", ""),
+                
+                "dent_count": damage_summary.get("dent", {}).get("count", 0),
+                "crack_count": damage_summary.get("crack", {}).get("count", 0),
+                "scratch_count": damage_summary.get("scratch", {}).get("count", 0),
+                "broken_light_count": damage_summary.get("broken_light", {}).get("count", 0),
+                "shattered_glass_count": damage_summary.get("shattered_glass", {}).get("count", 0),
+                "flat_tire_count": damage_summary.get("flat_tire", {}).get("count", 0),
+
+                "reference_number": get_reference_number_from_session(),  # Get policy/claim number
+                "unique_id": claim_uid,  # Link to claim
+                "created_by": created_by
+            }
+            
+            # Insert CV metadata into database
+            try:
+                cv_uid = insert_cv_metadata(cv_metadata)
+                st.success(f"✅ CV analysis saved to database with UID: {cv_uid}")
+                # st.success(f"✅ CV analysis saved to database with UID")
+                
+                # Update the CV response with database info
+                cv_response.update({
+                    "cv_uid": cv_uid,
+                    "normal_guid": normal_guid,
+                    "annotated_guid": annotated_guid,
+                    "normal_blob_link": normal_blob_link,
+                    "annotated_blob_link": annotated_blob_link,
+                    "claim_uid": claim_uid,
+                    "normal_image_hash": normal_image_hash,
+                    "annotated_image_hash": annotated_image_hash
+                })
+                
+                return cv_response
+                
+            except Exception as db_error:
+                st.error(f"Failed to save CV analysis to database: {db_error}")
+                return cv_response  # Return CV response even if DB save fails
+        
+        return None
+        
+    except Exception as e:
+        st.error(f"Error in CV analysis with storage: {e}")
+        return None
+
+
+def get_reference_number_from_session():
+    """Extract reference number (Policy/Claim) from current session context"""
+    try:
+        # Try to get from form defaults
+        if "form_defaults" in st.session_state:
+            defaults = st.session_state.form_defaults
+            # Check for policy number first
+            policy_no = defaults.get("POLICY_NO")
+            if policy_no:
+                return policy_no
+            # Then check for claim number
+            claim_no = defaults.get("CLAIM_NO")
+            if claim_no:
+                return claim_no
+        
+        # Try to get from session state keys
+        for key in ["manual_policy_submission_policy_no", "manual_claim_submission_claim_no"]:
+            if key in st.session_state:
+                return st.session_state[key]
+        
+        return None
+    except Exception as e:
+        print(f"Error getting reference number from session: {e}")
+        return None
+
+def get_claim_uid_from_session():
+    """Extract claim UID from current session context"""
+    try:
+        # Try to get from claim form data
+        if "form_defaults" in st.session_state:
+            defaults = st.session_state.form_defaults
+            claim_no = defaults.get("CLAIM_NO")
+            if claim_no:
+                # Fetch the latest claim to get its UID
+                claim_data = _fetch_latest_claims(claim_no)
+                if claim_data and len(claim_data) > 0:
+                    return claim_data[0].get("Unique_ID")
+        
+        # Try to get from session state keys
+        for key in ["manual_claim_submission_uid", "claim_update_uid", "claim_close_uid", "claim_reopen_uid"]:
+            if key in st.session_state:
+                return st.session_state[key]
+        
+        return None
+    except Exception as e:
+        print(f"Error getting claim UID from session: {e}")
+        return None
+
+
+######################
 
 # def display_damage_analysis(analysis_result, filename):
 #     """Display damage analysis results in a formatted way"""
@@ -610,10 +869,10 @@ def display_severity_dashboard(num_images):
         damage_icons = {
             "dent": " ",
             "broken_light": " ", 
-            "bumper_damage": " ",
+            "shattered_glass": " ",
             "scratch": " ",
             "crack": " ",
-            "missing_part": " "
+            "flat_tire": " "
         }
         
         for i, (damage_type, count) in enumerate(all_damage_types.items()):
@@ -751,6 +1010,9 @@ def display_attachments(attachments):
     # Display images with severity analysis
     if images:
         # st.markdown("#### Images")
+        # ✅ GET CLAIM UID AND USER FROM SESSION
+        claim_uid = get_claim_uid_from_session()
+        current_user = st.session_state.get("user_name", "user")  # Get from your auth system
         
         # ✅ ADD BULK ANALYSIS BUTTON
         if len(images) > 1:
@@ -764,7 +1026,11 @@ def display_attachments(attachments):
                         data = image_attachment.get("data", "")
                         
                         if data:
-                            analysis_result = analyze_image_damage(data, filename)
+                            # analysis_result = analyze_image_damage(data, filename)
+                            # ✅ USE THE NEW FUNCTION WITH STORAGE
+                            analysis_result = analyze_image_damage_with_storage(
+                                data, filename, current_user, claim_uid
+                            )
                             if analysis_result:
                                 st.session_state[f"damage_analysis_{i}"] = analysis_result
                         
@@ -794,7 +1060,10 @@ def display_attachments(attachments):
                         
                         # Quick analysis button
                         if st.button(f"🔍 Analyze", key=f"quick_analyze_{i}", use_container_width=True):
-                            analysis_result = analyze_image_damage(data, filename)
+                            # analysis_result = analyze_image_damage(data, filename)
+                            analysis_result = analyze_image_damage_with_storage(
+                                data, filename, current_user, claim_uid
+                            )
                             if analysis_result:
                                 st.session_state[f"damage_analysis_{i}"] = analysis_result
                                 st.success("✅ Analysis complete!")
@@ -808,6 +1077,17 @@ def display_attachments(attachments):
                             if isinstance(analysis_data, dict):
                                 analysis = analysis_data.get("analysis", analysis_data)  # Support both old and new structure
                                 severity = analysis.get("severity_assessment", {}).get("severity", "Unknown")
+
+                                # # ✅ SHOW DATABASE INFO IF AVAILABLE
+                                # if "cv_uid" in analysis_data:
+                                #     st.success(f"✅ Saved to DB (UID: {analysis_data['cv_uid']})")
+                                
+                                # # ✅ SHOW BLOB LINKS IF AVAILABLE
+                                # if "normal_blob_link" in analysis_data:
+                                #     st.markdown(f"[📷 View Original]({analysis_data['normal_blob_link']})")
+                                # if "annotated_blob_link" in analysis_data:
+                                #     st.markdown(f"[🎯 View Annotated]({analysis_data['annotated_blob_link']})")
+
                                 
                                 if "High" in severity:
                                     st.error(f"⚠️ {severity}")
@@ -1758,6 +2038,36 @@ def show_policy_form():
 
                     try:
                         insert_policy(form_data)
+                        policy_unique_id = form_data["Unique_ID"]
+
+                        # ✅ LINK EXISTING ML PREDICTIONS TO THE NEW POLICY
+                        ml_links_updated = 0
+
+                        # Check if there are any ML predictions in session that need linking
+                        if "predicted_premium" in st.session_state and st.session_state.predicted_premium > 0:
+                            # Look for recent ML predictions for this policy number
+                            try:
+                                recent_predictions = fetch_ml_predictions_by_reference(form_data["POLICY_NO"])
+                                
+                                for prediction in recent_predictions:
+                                    # Only link predictions that don't have a policy UID yet
+                                    if not prediction.get("Unique_ID"):
+                                        try:
+                                            success = update_ml_prediction_policy_link(
+                                                prediction["UID"], 
+                                                policy_unique_id
+                                            )
+                                            if success:
+                                                ml_links_updated += 1
+                                                st.success(f"✅ Linked ML prediction {prediction['UID']} to policy {form_data['POLICY_NO']}")
+                                        except Exception as ml_error:
+                                            st.warning(f"Failed to link ML prediction: {ml_error}")
+                            
+                            except Exception as ml_fetch_error:
+                                st.warning(f"Could not fetch ML predictions for linking: {ml_fetch_error}")
+
+                        if ml_links_updated > 0:
+                            st.info(f"Successfully linked {ml_links_updated} ML prediction(s) to this policy.")
 
                         # Update document table with policy Unique_ID
                         if guid_string:
@@ -2606,8 +2916,8 @@ def show_claims_form(defaults):
             images = [att for att in attachments if att.get("content_type", "").startswith("image/")]
             
             if images:
-                st.markdown("#### 📸 Claim Images & Damage Analysis")
-                st.info("💡 Upload images to automatically assess damage severity and help with claim processing.")
+                # st.markdown("#### 📸 Claim Images & Damage Analysis")
+                # st.info("💡 Upload images to automatically assess damage severity and help with claim processing.")
 
                 # Display severity dashboard if any analyses exist
                 display_severity_dashboard(len(images))
@@ -2741,7 +3051,7 @@ def show_claims_form(defaults):
         with col2:
             executive = st.text_input("Executive *", value=defaults.get("EXECUTIVE", ""), key="claim_executive")
             nationality = st.text_input("Nationality", value=defaults.get("NATIONALITY", ""), key="claim_nationality")
-            claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True, key="claim_no")
+            claim_no = st.text_input("Claim No", value=st.session_state.claim_no, disabled=True)
             intimated_sf = st.number_input("Intimated SF", value=defaults.get("INTIMATED_SF", 0.0), key="claim_intimated_sf")
             account_code_value = st.text_input("Account Code", value=defaults.get("ACCOUNT_CODE", ""), key="claim_account_code")
 
@@ -2834,6 +3144,26 @@ def show_claims_form(defaults):
                 
                             try:
                                 insert_claim(claim_data)
+                                claim_unique_id = claim_data["Unique_ID"]
+
+                                # ✅ LINK EXISTING CV ANALYSES TO THE NEW CLAIM
+                                cv_links_updated = 0
+                                for i in range(10):  # Check up to 10 images
+                                    analysis_key = f"damage_analysis_{i}"
+                                    if analysis_key in st.session_state:
+                                        analysis_data = st.session_state[analysis_key]
+                                        if "cv_uid" in analysis_data:
+                                            try:
+                                                # Update the CV metadata record to link with this claim
+                                                success = update_cv_metadata_claim_link(analysis_data["cv_uid"], claim_unique_id)
+                                                if success:
+                                                    cv_links_updated += 1
+                                                    st.success(f"✅ Linked CV analysis {analysis_data['cv_uid']} to claim {claim_no}")
+                                            except Exception as cv_error:
+                                                st.warning(f"Failed to link CV analysis: {cv_error}")
+
+                                if cv_links_updated > 0:
+                                    st.info(f"Successfully linked {cv_links_updated} damage analysis records to this claim.")
                                 
                                 # Update document table with claim Unique_ID
                                 if guid_string:

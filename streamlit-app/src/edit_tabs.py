@@ -86,24 +86,24 @@ def new_submission_tab():
     with col1:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">New Policy Submission</h4>
-            <p>View insurance policies. Track policy details, premiums, and renewal dates.</p>
+            <h4 style="color: #23E4BA;">Submit Policy Form</h4>
+            <p>Manually add or update policy details and premium information..</p>
         </div>
         """, unsafe_allow_html=True)
         policy_btn = st.button("Policy", use_container_width=True, type="primary")
     with col2:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">New Claims Processing</h4>
-            <p>View insurance claims. Track claim status, payments, and settlement details.</p>
+            <h4 style="color: #23E4BA;">Process Claim Forms</h4>
+            <p>Manually enter or update claim status, payment, and settlement data.</p>
         </div>
         """, unsafe_allow_html=True)
         claims_btn = st.button("Claims", use_container_width=True, type="primary")
     with col3:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">Upload a Slip</h4>
-            <p>Upload documents related to policies and claims.</p>
+            <h4 style="color: #23E4BA;">Slip Upload</h4>
+            <p>Upload policy-related documents and claims email threads for processing and record-keeping.</p>
         </div>
         """, unsafe_allow_html=True)
         upload_btn = st.button("Upload Slip", use_container_width=True, type="primary")

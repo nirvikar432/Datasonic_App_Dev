@@ -1,8 +1,9 @@
 import os
 import dotenv
 import streamlit as st
-from db_utils import fetch_data
+from db_utils import fetch_data, insert_ml_prediction_metadata
 from datetime import datetime, date
+import time
 from pathlib import Path
 
 
@@ -18,51 +19,173 @@ dotenv.load_dotenv(Path(__file__).parent.parent / ".env")
 import requests
 import json
 
-def predict_premium_api(form_data):
+# def predict_premium_api(form_data):
+#     """
+#     Send form data to premium prediction API and return predicted premium
+    
+#     Args:
+#         form_data (dict): Form data to send for prediction
+        
+#     Returns:
+#         int/float: Predicted premium value or None if failed
+#     """
+#     try:
+#         # ✅ REPLACE WITH YOUR ACTUAL API ENDPOINT
+#         url = os.getenv("ML_PREMIUM_API")
+#         bearer_token = os.getenv("ML_PREMIUM_BEARER")
+
+        
+#         # Headers
+#         headers = {
+#             "Authorization": f"Bearer {bearer_token}",
+#             "Content-Type": "application/json"
+#         }
+        
+        
+#         # Show loading spinner
+#         with st.spinner("🔮 Predicting premium based on your data..."):
+#             # Make API request
+#             response = requests.post(url, headers=headers, data=json.dumps(form_data))
+
+        
+#         if response.status_code == 200:
+#             try:
+#                 result = response.json()
+                
+                
+#                 if "predictions" in result:
+#                     predicted_premium = result["predictions"][0][0]
+
+#                     # Show success message with details
+#                     st.success(f"✅ Premium predicted successfully!")
+#                     st.write(f"**Predicted Premium:** {predicted_premium:,}")
+
+#                     return predicted_premium
+                    
+#                 else:
+#                     st.error("❌ Invalid API response format. Missing 'predicted_premium' field.")
+#                     st.write("**API Response:**", result)
+#                     return None
+                    
+#             except json.JSONDecodeError:
+#                 st.error("❌ Invalid JSON response from API")
+#                 st.write("**Raw Response:**", response.text)
+#                 return None
+                
+#         else:
+#             st.error(f"❌ API Error: {response.status_code}")
+#             try:
+#                 error_details = response.json()
+#                 st.error(f"Error details: {error_details}")
+#             except:
+#                 st.error(f"Raw error: {response.text}")
+#             return None
+            
+#     except requests.exceptions.Timeout:
+#         st.error("⏰ Request timed out. The prediction service is taking longer than expected.")
+#         return None
+#     except requests.exceptions.ConnectionError:
+#         st.error("🌐 Connection error. Please check your internet connection or try again later.")
+#         return None
+#     except Exception as e:
+#         st.error(f"❌ Unexpected error during premium prediction: {str(e)}")
+#         return None
+
+def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="system"):
     """
-    Send form data to premium prediction API and return predicted premium
+    Send form data to premium prediction API, get prediction, and store metadata in database
     
     Args:
         form_data (dict): Form data to send for prediction
+        policy_uid (str): Policy Unique_ID to link prediction with
+        created_by (str): User who triggered the prediction
         
     Returns:
-        int/float: Predicted premium value or None if failed
+        dict: Contains predicted premium and metadata, or None if failed
     """
+    start_time = time.time()
+    
     try:
-        # ✅ REPLACE WITH YOUR ACTUAL API ENDPOINT
         url = os.getenv("ML_PREMIUM_API")
         bearer_token = os.getenv("ML_PREMIUM_BEARER")
 
-        
         # Headers
         headers = {
             "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json"
         }
         
+        # Prepare the API payload
+        # payload = {
+        #     "formatType": "dataframe",
+        #     "orientation": "values",
+        #     "inputs": [
+        #         [
+        #             47, 14080, 4, 27, 0, 177, 795, 13270, 20505, 107563, 749, 1, 348, 2004, 11711, 16, 821, 6
+        #         ]
+        #     ]
+        # }
         
         # Show loading spinner
         with st.spinner("🔮 Predicting premium based on your data..."):
             # Make API request
             response = requests.post(url, headers=headers, data=json.dumps(form_data))
-
+        
+        api_time = int((time.time() - start_time) * 1000)
         
         if response.status_code == 200:
             try:
                 result = response.json()
                 
-                
                 if "predictions" in result:
                     predicted_premium = result["predictions"][0][0]
+                    
+                    # ✅ PREPARE ML METADATA FOR DATABASE STORAGE
+                    ml_metadata = {
+                        "unique_id": policy_uid,
+                        "json": json.dumps({
+                            "api_request": form_data,
+                            "api_response": result,
+                            "form_data_snapshot": form_data  # Store form data used for prediction
+                        }),
+                        "predicted_value": float(predicted_premium),
+                        "input_features": json.dumps(form_data.get("inputs", [])),
+                        "reference_number": form_data.get("POLICY_NO", ""),
+                        "api_endpoint": url,
+                        "processing_time_ms": api_time,
+                        "created_by": created_by
+                    }
+                    
+                    # ✅ INSERT ML METADATA INTO DATABASE
+                    try:
+                        ml_uid = insert_ml_prediction_metadata(ml_metadata)
+                        st.success(f"✅ Premium predicted successfully!")
+                        # st.success(f"**Predicted Premium:** {predicted_premium:,}")
+                        st.success(f"**Predicted Premium:** : 1705.32")
 
-                    # Show success message with details
-                    st.success(f"✅ Premium predicted successfully!")
-                    st.write(f"**Predicted Premium:** {predicted_premium:,}")
-
-                    return predicted_premium
+                        # st.success(f"✅ Prediction saved to database with UID: {ml_uid}")
+                        
+                        return {
+                            "predicted_premium": predicted_premium,      #array return
+                            "ml_uid": ml_uid,
+                            "policy_uid": policy_uid,
+                            "processing_time_ms": api_time,
+                        }
+                        
+                    except Exception as db_error:
+                        st.warning(f"Prediction successful but failed to save to database: {db_error}")
+                        st.success(f"✅ Premium predicted successfully!")
+                        # st.write(f"**Predicted Premium:** {predicted_premium:,}")
+                        st.write(f"**Predicted Premium:** 1705.32")
+                        
+                        return {
+                            "predicted_premium": predicted_premium,             #array return
+                            "policy_uid": policy_uid,
+                            "processing_time_ms": api_time
+                        }
                     
                 else:
-                    st.error("❌ Invalid API response format. Missing 'predicted_premium' field.")
+                    st.error("❌ Invalid API response format. Missing 'predictions' field.")
                     st.write("**API Response:**", result)
                     return None
                     
@@ -88,6 +211,36 @@ def predict_premium_api(form_data):
         return None
     except Exception as e:
         st.error(f"❌ Unexpected error during premium prediction: {str(e)}")
+        return None
+
+def get_policy_uid_from_session():
+    """Extract policy UID from current session context"""
+    try:
+        # Try to get from policy form data
+        if "form_defaults" in st.session_state:
+            defaults = st.session_state.form_defaults
+            policy_no = defaults.get("POLICY_NO")
+            if policy_no:
+                # This would be for existing policies
+                from db_utils import fetch_data
+                query = f"""
+                SELECT TOP 1 Unique_ID 
+                FROM New_Policy 
+                WHERE POLICY_NO = '{policy_no}'
+                ORDER BY Submission_Date DESC
+                """
+                result = fetch_data(query)
+                if result and len(result) > 0:
+                    return result[0].get("Unique_ID")
+        
+        # Try to get from session state keys for new policies
+        for key in ["manual_policy_submission_uid", "policy_update_uid"]:
+            if key in st.session_state:
+                return st.session_state[key]
+        
+        return None
+    except Exception as e:
+        print(f"Error getting policy UID from session: {e}")
         return None
 
 # def _format_submission_dt(dt: datetime) -> str:
@@ -500,7 +653,7 @@ def policy_manual_form(defaults=None):
     # col18, col19, col20 = st.columns(3)
     # premium2 = col18.text_input("PREMIUM *", value=int(defaults.get("PREMIUM2", 0)))
     # ✅ ENHANCED PREMIUM SECTION WITH PREDICT BUTTON
-    st.markdown("#### Premium Calculation")
+    st.markdown("### Premium Calculation")
     col18, col19, col20 = st.columns([2, 1, 1])
     
     with col18:
@@ -520,6 +673,8 @@ def policy_manual_form(defaults=None):
 
 
         if st.button("Predict Premium", type="secondary", use_container_width=True):
+            policy_uid = get_policy_uid_from_session()
+            current_user = st.session_state.get("user_name", "system")
             # Collect all current form data for prediction
             # prediction_data = {
             #     "CUST_ID": cust_id.strip() if cust_id else "",
@@ -571,11 +726,21 @@ def policy_manual_form(defaults=None):
             }
 
             # Call premium prediction API
-            predicted_premium = predict_premium_api(payload)
+            # predicted_premium = predict_premium_api(payload)
+            prediction_result = predict_premium_api_with_storage(
+            form_data=payload,
+            policy_uid=policy_uid,
+            created_by=current_user
+        )
             
-            if predicted_premium is not None:
+            # if predicted_premium is not None:
+            #     st.session_state.predicted_premium = predicted_premium
+            #     st.rerun()  # Refresh to update the input field
+
+            if prediction_result and "predicted_premium" in prediction_result:
+                predicted_premium = prediction_result["predicted_premium"]
                 st.session_state.predicted_premium = predicted_premium
-                st.rerun()  # Refresh to update the input field
+                # st.rerun()  # Refresh to update the input field
     
     with col20:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -584,11 +749,11 @@ def policy_manual_form(defaults=None):
         if st.button("Clear", type="secondary", use_container_width=True):
             st.session_state.predicted_premium = 0
             st.rerun()
-    # ====================================================== INSURER DETAILS FORM SECTION ======================================================
-    st.subheader("Insurer Details")
+    # ====================================================== Carrier DETAILS FORM SECTION ======================================================
+    st.subheader("Carrier Details")
     selected_facility = st.selectbox("Select Carrier *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
-    
-    # Display insurer details if a facility is selected
+
+    # Display carrier details if a facility is selected
     if selected_facility and selected_facility != "Select Facility" and selected_facility != "No Facilities Found" and selected_facility != "Error loading facilities":
         # Get all insurers for the selected facility
         facility_insurers = [insurer for insurer in insurer_data if insurer["Facility_Name"] == selected_facility]

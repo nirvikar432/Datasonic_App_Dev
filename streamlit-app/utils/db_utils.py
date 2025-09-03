@@ -650,3 +650,465 @@ def get_current_page():
         return 'unknown_page'
     except:
         return 'unknown'
+    
+
+
+def insert_cv_metadata(cv_data):
+    """Insert CV metadata into APP_CV_DATA table"""
+    start_time = time.time()
+    correlation_id = str(uuid.uuid4())
+    conn = None
+    
+    try:
+        print(f"DEBUG: Attempting to insert CV metadata: {cv_data}")
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO APP_CV_DATA (
+            Normal_Image_Hash, Annotated_Image_Hash, Normal_Image_Name, 
+            Normal_Image_Unique_Name, Annotated_Image_Name, Annotated_Image_Unique_Name,
+            Normal_Image_Blob_Link, Annotated_Image_Blob_Link, JSON,
+            Normal_Image_GUID, Annotated_Image_GUID, Total_Detections,
+            Severity, Severity_Reason, Dent_Count, Crack_Count, Scratch_Count,
+            Broken_Light_Count, Flat_Tire_Count, Shattered_Glass_Count,
+            Reference_Number, Unique_ID, Created_By
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            cv_data.get("normal_image_hash"),
+            cv_data.get("annotated_image_hash"),
+            cv_data.get("normal_image_name"),
+            cv_data.get("normal_image_unique_name"),
+            cv_data.get("annotated_image_name"),
+            cv_data.get("annotated_image_unique_name"),
+            cv_data.get("normal_image_blob_link"),
+            cv_data.get("annotated_image_blob_link"),
+            cv_data.get("json"),
+            cv_data.get("normal_image_guid"),
+            cv_data.get("annotated_image_guid"),
+            cv_data.get("total_detections", 0),
+            cv_data.get("severity"),
+            cv_data.get("severity_reason"),
+            cv_data.get("dent_count", 0),
+            cv_data.get("crack_count", 0),
+            cv_data.get("scratch_count", 0),
+            cv_data.get("broken_light_count", 0),
+            cv_data.get("flat_tire_count", 0),
+            cv_data.get("shattered_glass_count", 0),
+            cv_data.get("reference_number"),
+            cv_data.get("unique_id"),
+            cv_data.get("created_by", "system")
+        )
+        
+        cursor.execute(insert_query, values)
+        conn.commit()
+        
+        # Get the inserted UID
+        cursor.execute("SELECT @@IDENTITY")
+        cv_uid = cursor.fetchone()[0]
+        
+        execution_time = (time.time() - start_time) * 1000
+        
+        # Log the operation
+        log_database_operation(
+            operation="INSERT",
+            table_name="APP_CV_DATA",
+            rows_affected=1,
+            execution_time_ms=execution_time,
+            correlation_id=correlation_id,
+            additional_data={
+                "cv_uid": cv_uid,
+                "claim_uid": cv_data.get("unique_id"),
+                "normal_guid": cv_data.get("normal_image_guid"),
+                "annotated_guid": cv_data.get("annotated_image_guid"),
+                "reference_number": cv_data.get("reference_number")
+            }
+        )
+        
+        return cv_uid
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        execution_time = (time.time() - start_time) * 1000
+        log_error(
+            error=e,
+            module_name="db_utils",
+            function_name="insert_cv_metadata",
+            correlation_id=correlation_id,
+            execution_time_ms=execution_time
+        )
+        raise e
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def fetch_cv_metadata_by_claim_uid(claim_uid):
+    """Fetch CV metadata by Claim UID"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(as_dict=True)
+        
+        query = """
+        SELECT 
+            cv.*,
+            c.CLAIM_NO,
+            c.POLICY_NO,
+            c.MAKE,
+            c.MODEL,
+            c.CLAIM_STATUS
+        FROM APP_CV_DATA cv
+        LEFT JOIN New_Claims c ON cv.Unique_ID = c.Unique_ID
+        WHERE cv.Unique_ID = %s
+        ORDER BY cv.Upload_Date DESC
+        """
+        
+        cursor.execute(query, (claim_uid,))
+        result = cursor.fetchall()
+        
+        return result
+        
+    except Exception as e:
+        log_error(e, "db_utils", "fetch_cv_metadata_by_claim_uid")
+        return []
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def fetch_cv_metadata_by_reference(reference_number):
+    """Fetch CV metadata by reference number (Policy/Claim number)"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(as_dict=True)
+        
+        query = """
+        SELECT 
+            cv.*,
+            c.CLAIM_NO,
+            c.POLICY_NO,
+            c.MAKE,
+            c.MODEL,
+            c.CLAIM_STATUS
+        FROM APP_CV_DATA cv
+        LEFT JOIN New_Claims c ON cv.Unique_ID = c.Unique_ID
+        WHERE cv.Reference_Number = %s
+        ORDER BY cv.Upload_Date DESC
+        """
+        
+        cursor.execute(query, (reference_number,))
+        result = cursor.fetchall()
+        
+        return result
+        
+    except Exception as e:
+        log_error(e, "db_utils", "fetch_cv_metadata_by_reference")
+        return []
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def update_cv_metadata_claim_link(cv_uid, claim_uid):
+    """Update CV metadata to link with claim UID"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = """
+        UPDATE APP_CV_DATA 
+        SET Unique_ID = %s, Updated_Date = GETDATE() 
+        WHERE UID = %s
+        """
+        
+        cursor.execute(query, (claim_uid, cv_uid))
+        conn.commit()
+        
+        return True
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(e, "db_utils", "update_cv_metadata_claim_link")
+        return False
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def fetch_all_cv_metadata(limit=100):
+    """Fetch all CV metadata with optional limit"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(as_dict=True)
+        
+        query = f"""
+        SELECT TOP {limit}
+            cv.UID,
+            cv.Normal_Image_Name,
+            cv.Annotated_Image_Name,
+            cv.Normal_Image_Blob_Link,
+            cv.Annotated_Image_Blob_Link,
+            cv.Total_Detections,
+            cv.Severity,
+            cv.Upload_Date,
+            cv.Reference_Number,
+            cv.Created_By,
+            c.CLAIM_NO,
+            c.POLICY_NO,
+            c.CLAIM_STATUS
+        FROM APP_CV_DATA cv
+        LEFT JOIN New_Claims c ON cv.Unique_ID = c.Unique_ID
+        ORDER BY cv.Upload_Date DESC
+        """
+        
+        cursor.execute(query)
+        result = cursor.fetchall()
+        
+        return result
+        
+    except Exception as e:
+        log_error(e, "db_utils", "fetch_all_cv_metadata")
+        return []
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+
+
+
+#ML METADATA
+def insert_ml_prediction_metadata(ml_data):
+    """Insert ML prediction metadata into APP_ML_DATA table"""
+    start_time = time.time()
+    correlation_id = str(uuid.uuid4())
+    conn = None
+    
+    try:
+        print(f"DEBUG: ML prediction data received: {ml_data}")
+        
+        # Validate Unique_ID
+        unique_id = ml_data.get("unique_id")
+        if unique_id:
+            try:
+                uuid.UUID(str(unique_id))
+            except (ValueError, TypeError):
+                print(f"WARNING: Invalid unique_id: {unique_id}")
+                unique_id = None
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO APP_ML_DATA (
+            Unique_ID, JSON, PREDICTED_VALUE, INPUT_FEATURES, 
+            REFERENCE_NUMBER, API_ENDPOINT, PROCESSING_TIME_MS, Created_By
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            unique_id,
+            ml_data.get("json"),
+            ml_data.get("predicted_value"),
+            ml_data.get("input_features"),
+            ml_data.get("reference_number"),
+            ml_data.get("api_endpoint"),
+            ml_data.get("processing_time_ms"),
+            ml_data.get("created_by", "system")
+        )
+        
+        print(f"DEBUG: Executing ML prediction insert with values: {values}")
+        
+        cursor.execute(insert_query, values)
+        conn.commit()
+        
+        # Get the inserted UID
+        cursor.execute("SELECT @@IDENTITY")
+        ml_uid_result = cursor.fetchone()
+        ml_uid = ml_uid_result[0] if ml_uid_result else None
+        
+        print(f"DEBUG: Successfully inserted ML prediction with UID: {ml_uid}")
+        
+        execution_time = (time.time() - start_time) * 1000
+        
+        # Log the operation
+        log_database_operation(
+            operation="INSERT",
+            table_name="APP_ML_DATA",
+            rows_affected=1,
+            execution_time_ms=execution_time,
+            correlation_id=correlation_id,
+            additional_data={
+                "ml_uid": ml_uid,
+                "policy_uid": unique_id,
+                "predicted_value": ml_data.get("predicted_value"),
+                "reference_number": ml_data.get("reference_number")
+            }
+        )
+        
+        return ml_uid
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        execution_time = (time.time() - start_time) * 1000
+        
+        print(f"ERROR: Failed to insert ML prediction: {e}")
+        print(f"ERROR: ML data was: {ml_data}")
+        
+        log_error(
+            error=e,
+            module_name="db_utils",
+            function_name="insert_ml_prediction_metadata",
+            correlation_id=correlation_id,
+            execution_time_ms=execution_time,
+            additional_data={"ml_data_keys": list(ml_data.keys()) if ml_data else None}
+        )
+        raise e
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def fetch_ml_predictions_by_policy_uid(policy_uid):
+    """Fetch ML predictions by Policy UID"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(as_dict=True)
+        
+        query = """
+        SELECT 
+            ml.*,
+            p.POLICY_NO,
+            p.CUST_ID,
+            p.MAKE,
+            p.MODEL,
+            p.PREMIUM2 as ACTUAL_PREMIUM
+        FROM APP_ML_DATA ml
+        LEFT JOIN New_Policy p ON ml.Unique_ID = p.Unique_ID
+        WHERE ml.Unique_ID = %s
+        ORDER BY ml.PREDICTION_DATE DESC
+        """
+        
+        cursor.execute(query, (policy_uid,))
+        result = cursor.fetchall()
+        
+        return result
+        
+    except Exception as e:
+        log_error(e, "db_utils", "fetch_ml_predictions_by_policy_uid")
+        return []
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def fetch_ml_predictions_by_reference(reference_number):
+    """Fetch ML predictions by reference number (Policy number)"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(as_dict=True)
+        
+        query = """
+        SELECT 
+            ml.*,
+            p.POLICY_NO,
+            p.CUST_ID,
+            p.MAKE,
+            p.MODEL,
+            p.PREMIUM2 as ACTUAL_PREMIUM
+        FROM APP_ML_DATA ml
+        LEFT JOIN New_Policy p ON ml.Unique_ID = p.Unique_ID
+        WHERE ml.REFERENCE_NUMBER = %s
+        ORDER BY ml.PREDICTION_DATE DESC
+        """
+        
+        cursor.execute(query, (reference_number,))
+        result = cursor.fetchall()
+        
+        return result
+        
+    except Exception as e:
+        log_error(e, "db_utils", "fetch_ml_predictions_by_reference")
+        return []
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def update_ml_prediction_policy_link(ml_uid, policy_uid):
+    """Update ML prediction to link with policy UID"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = """
+        UPDATE APP_ML_DATA 
+        SET Unique_ID = %s, Updated_Date = GETDATE() 
+        WHERE UID = %s
+        """
+        
+        cursor.execute(query, (policy_uid, ml_uid))
+        conn.commit()
+        
+        return True
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(e, "db_utils", "update_ml_prediction_policy_link")
+        return False
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+# def fetch_all_ml_predictions(limit=100):
+#     """Fetch all ML predictions with optional limit"""
+#     conn = None
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(as_dict=True)
+        
+#         query = f"""
+#         SELECT TOP {limit}
+#             ml.UID,
+#             ml.PREDICTED_VALUE,
+#             ml.PREDICTION_DATE,
+#             ml.REFERENCE_NUMBER,
+#             ml.Created_By,
+#             p.POLICY_NO,
+#             p.CUST_ID,
+#             p.MAKE,
+#             p.MODEL,
+#             p.PREMIUM2 as ACTUAL_PREMIUM,
+#             p.TransactionType
+#         FROM APP_ML_DATA ml
+#         LEFT JOIN New_Policy p ON ml.Unique_ID = p.Unique_ID
+#         ORDER BY ml.PREDICTION_DATE DESC
+#         """
+        
+#         cursor.execute(query)
+#         result = cursor.fetchall()
+        
+#         return result
+        
+#     except Exception as e:
+#         log_error(e, "db_utils", "fetch_all_ml_predictions")
+#         return []
+#     finally:
+#         if conn:
+#             cursor.close()
+#             conn.close()
