@@ -142,7 +142,7 @@ def insurer_form(defaults=None):
                                     value=int(st.session_state.insurer_group_size), 
                                     min_value=1, max_value=50, step=1,
                                     key="group_size_input",
-                                    help="Number of insurers in this facility")
+                                    help="Number of Carriers in this facility")
     
     # with col4:
     #     longevity_years = st.number_input("Longevity (Years) *", value=int(defaults.get("Longevity_Years", 0)), min_value=0, key=f"longevity_years")
@@ -159,14 +159,14 @@ def insurer_form(defaults=None):
         st.caption("Fields marked with * are mandatory")
         
         # Dynamic Insurer Details Section based on Group Size
-        st.subheader(f"Insurer Information (Total: {group_size} Insurers)")
+        st.subheader(f"Carrier Information (Total: {group_size} Carriers)")
         
         insurers_data = []
         total_participation = 0.0
         
         # Create dynamic insurer fields based on group size
         for i in range(group_size):
-            st.markdown(f"**Insurer {i+1}**")
+            st.markdown(f"**Carrier {i+1}**")
             
             # Create columns for each insurer
             col_name, col_participation = st.columns(2)
@@ -179,7 +179,7 @@ def insurer_form(defaults=None):
             
             
             insurer_name = col_name.text_input(
-                f"Insurer Name *", 
+                f"Carrier Name *", 
                 value=current_insurer.get("Insurer_Name", ""),
                 key=f"insurer_name_{i}"
             )
@@ -216,7 +216,7 @@ def insurer_form(defaults=None):
                 key=f"fca_registration_{i}"
             )
             insurer_type = col_type.selectbox(
-                f"Insurer Type *", 
+                f"Carrier Type *", 
                 options=["Direct", "Reinsurer", "Broker"],
                 index=current_insurer.get("Insurer_Type_Index", 0),
                 key=f"insurer_type_{i}"
@@ -272,7 +272,7 @@ def insurer_form(defaults=None):
             if abs(total_participation - 100.0) > 0.01:
                 st.warning(f"⚠️ Total participation should equal 100%. Current total: {total_participation:.2f}%")
         
-        submit = st.form_submit_button("Submit Insurers", type="primary")
+        submit = st.form_submit_button("Submit Carriers", type="primary")
         back = st.form_submit_button("Back")
         
         # Get facility data from session state inputs
@@ -385,7 +385,7 @@ def insurer_form(defaults=None):
 
 def insurer_summary_display(insurer_data):
     """Display insurer summary in a formatted layout"""
-    st.markdown("#### Insurer Summary")
+    st.markdown("#### Carrier Summary")
     
     col1, col2 = st.columns(2)
     
@@ -400,7 +400,7 @@ def insurer_summary_display(insurer_data):
         st.write(f"**Total Participation:** {insurer_data.get('Total_Participation', 0):.2f}%")
     
     with col2:
-        st.subheader("Insurers in this Carrier")
+        st.subheader("Insurer in this Carrier")
         insurers = insurer_data.get('insurers', [])
         if insurers:
             lead_insurer_id = max(insurers, key=lambda x: x.get('Participation', 0)).get('Insurer_ID')
@@ -410,15 +410,15 @@ def insurer_summary_display(insurer_data):
             insurer['LeadInsurer'] = (insurer.get('Insurer_ID') == lead_insurer_id)
 
         for i, insurer in enumerate(insurers):
-            st.markdown(f"**Insurer {i+1}:**")
+            st.markdown(f"**Carrier {i+1}:**")
             st.write(f"  • ID: {insurer['Insurer_ID']}")
             st.write(f"  • Name: {insurer['Insurer_Name']}")
             st.write(f"  • Date of Onboarding: {insurer['Date_Of_Onboarding']}")
             st.write(f"  • Longevity (Years): {insurer['Longevity_Years']}")
             st.write(f"  • Participation: {insurer['Participation']:.2f}%")
             st.write(f"  • FCA Registration Number: {insurer['FCA_Registration_Number']}")
-            st.write(f"  • Insurer Type: {insurer['Insurer_Type']}")
-            st.write(f"  • Lead Insurer: {'Yes' if insurer.get('LeadInsurer') else 'No'}")
+            st.write(f"  • Carrier Type: {insurer['Insurer_Type']}")
+            st.write(f"  • Lead Carrier: {'Yes' if insurer.get('LeadInsurer') else 'No'}")
             st.write(f"  • Delegated Authority: {'Yes' if insurer['Delegated_Authority'] else 'No'}")
             st.write(f"  • Status: {insurer['Status']}")
             st.write(f"  • Date of Expiry: {insurer['Date_Of_Expiry']}")
@@ -428,7 +428,7 @@ def insurer_summary_display(insurer_data):
 
 def facility_insurer_breakdown_display(facility_data):
     """Display detailed breakdown of facility and its insurers"""
-    st.markdown("#### Facility & Insurer Breakdown")
+    st.markdown("#### Facility & Carrier Breakdown")
     
     # Facility Overview
     st.subheader("📋 Carrier Overview")

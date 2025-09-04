@@ -3,4 +3,4 @@ from .policy_forms import policy_manual_form, policy_summary_display, policy_can
 from .policy_status_utils import update_policy_lapsed_status
 from .broker_form import broker_form, broker_summary_display
 from .insurer_form import insurer_form, insurer_summary_display
-from .sql_alchemy_v2 import chatbotAi
+from .fabric_data_agent_streamlit import chatbotAi

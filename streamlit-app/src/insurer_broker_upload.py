@@ -214,7 +214,7 @@ def display_upload_summary(document_records, json_data):
     st.subheader("TOBA Upload Summary")
     
     # Document details in expandable section
-    with st.expander("Document Details", expanded=True):
+    with st.expander("Document Details", expanded=False):
         for i, record in enumerate(document_records):
             col1, col2, col3 = st.columns(3)
             
@@ -259,7 +259,7 @@ def upload_toba_document():
             correlation_id=correlation_id
         )
 
-        st.header("TOBA Document Upload")
+        st.header("TOBA Slip Upload")
 
         # Check if there was a successful submission
         if "form_submitted" in st.session_state and st.session_state.form_submitted:
@@ -687,7 +687,7 @@ def fetch_json_data():
                     **extracted_fields
                 }
             
-            st.write("Mapped TOBA JSON Data:", normalized_data)
+            # st.write("Mapped TOBA JSON Data:", normalized_data)
             return normalized_data
             
         else:

@@ -91,7 +91,38 @@ import json
 #         st.error(f"❌ Unexpected error during premium prediction: {str(e)}")
 #         return None
 
-def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="system"):
+
+def mock_premium_prediction(form_data):
+    """
+    Mock function that returns a fake API response for premium prediction
+    
+    Args:
+        form_data (dict): The form data (not used in mock)
+        
+    Returns:
+        dict: Simulated API response with predicted premium
+    """
+    import random
+    import time
+    
+    # Add a slight delay to simulate API call
+    time.sleep(0.8)
+    
+    # Generate a random premium between 500 and 2000
+    # base_premium = 874.56
+    # variation = random.uniform(0.85, 1.15)  # +/- 15%
+    predicted_premium = 1705.32
+    
+    # Return a structure matching the real API response
+    return {
+        "formatType": "dataframe",
+        "orientation": "values",
+        "predictions": [
+            [predicted_premium]
+        ]
+    }
+
+def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="system", policy_no=None):
     """
     Send form data to premium prediction API, get prediction, and store metadata in database
     
@@ -108,12 +139,13 @@ def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="sys
     try:
         url = os.getenv("ML_PREMIUM_API")
         bearer_token = os.getenv("ML_PREMIUM_BEARER")
+        print("Mock connection")
 
         # Headers
-        headers = {
-            "Authorization": f"Bearer {bearer_token}",
-            "Content-Type": "application/json"
-        }
+        # headers = {
+        #     "Authorization": f"Bearer {bearer_token}",
+        #     "Content-Type": "application/json"
+        # }
         
         # Prepare the API payload
         # payload = {
@@ -129,13 +161,17 @@ def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="sys
         # Show loading spinner
         with st.spinner("🔮 Predicting premium based on your data..."):
             # Make API request
-            response = requests.post(url, headers=headers, data=json.dumps(form_data))
+            # response = requests.post(url, headers=headers, data=json.dumps(form_data))
+            result = mock_premium_prediction(form_data)  # Using mock function
+            # response.status_code = 200  # Mocking a successful response code
         
         api_time = int((time.time() - start_time) * 1000)
         
-        if response.status_code == 200:
+        # if response.status_code == 200:
+        if result:
             try:
-                result = response.json()
+        #         result = response.json()
+                print("Mock API result:")
                 
                 if "predictions" in result:
                     predicted_premium = result["predictions"][0][0]
@@ -150,7 +186,8 @@ def predict_premium_api_with_storage(form_data, policy_uid=None, created_by="sys
                         }),
                         "predicted_value": float(predicted_premium),
                         "input_features": json.dumps(form_data.get("inputs", [])),
-                        "reference_number": form_data.get("POLICY_NO", ""),
+                        # "reference_number": form_data.get("POLICY_NO", ""),
+                        "reference_number": policy_no or "",
                         "api_endpoint": url,
                         "processing_time_ms": api_time,
                         "created_by": created_by
@@ -550,10 +587,10 @@ def policy_manual_form(defaults=None):
         insurer_data = fetch_data(insurer_query)
         # Get unique facility names only
         unique_facilities = list(set([row["Facility_Name"] for row in insurer_data])) if insurer_data else []
-        facility_names = ["Select Facility"] + sorted(unique_facilities) if unique_facilities else ["No Facilities Found"]
+        facility_names = ["Select Carrier"] + sorted(unique_facilities) if unique_facilities else ["No Carriers Found"]
     except Exception as e:
         st.error(f"Failed to fetch insurer data: {e}")
-        facility_names = ["Error loading facilities"]
+        facility_names = ["Error loading carriers"]
         insurer_data = []
     
     st.caption("Fields marked with * are mandatory")
@@ -663,7 +700,8 @@ def policy_manual_form(defaults=None):
         
         premium2 = st.text_input(
             "PREMIUM *", 
-            value=str(st.session_state.predicted_premium),
+            # value=str(st.session_state.predicted_premium),
+            value = defaults.get("PREMIUM2", 0),
             key="premium_input"
         )
 
@@ -675,6 +713,8 @@ def policy_manual_form(defaults=None):
         if st.button("Predict Premium", type="secondary", use_container_width=True):
             policy_uid = get_policy_uid_from_session()
             current_user = st.session_state.get("user_name", "system")
+            current_policy_no = policy_no.strip() if policy_no else ""
+
             # Collect all current form data for prediction
             # prediction_data = {
             #     "CUST_ID": cust_id.strip() if cust_id else "",
@@ -730,7 +770,8 @@ def policy_manual_form(defaults=None):
             prediction_result = predict_premium_api_with_storage(
             form_data=payload,
             policy_uid=policy_uid,
-            created_by=current_user
+            created_by=current_user,
+            policy_no=current_policy_no
         )
             
             # if predicted_premium is not None:
@@ -740,6 +781,11 @@ def policy_manual_form(defaults=None):
             if prediction_result and "predicted_premium" in prediction_result:
                 predicted_premium = prediction_result["predicted_premium"]
                 st.session_state.predicted_premium = predicted_premium
+                st.session_state.ml_prediction_info = {
+                    "ml_uid": prediction_result.get("ml_uid"),
+                    "reference_number": prediction_result.get("reference_number"),
+                    "predicted_premium": predicted_premium
+                }
                 # st.rerun()  # Refresh to update the input field
     
     with col20:
@@ -751,10 +797,10 @@ def policy_manual_form(defaults=None):
             st.rerun()
     # ====================================================== Carrier DETAILS FORM SECTION ======================================================
     st.subheader("Carrier Details")
-    selected_facility = st.selectbox("Select Carrier *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Facility")) if defaults and defaults.get("Facility_Name", "Select Facility") in facility_names else 0)
+    selected_facility = st.selectbox("Select Carrier *", facility_names, key="facility_select", index=facility_names.index(defaults.get("Facility_Name", "Select Carrier")) if defaults and defaults.get("Facility_Name", "Select Carrier") in facility_names else 0)
 
     # Display carrier details if a facility is selected
-    if selected_facility and selected_facility != "Select Facility" and selected_facility != "No Facilities Found" and selected_facility != "Error loading facilities":
+    if selected_facility and selected_facility != "Select Carrier" and selected_facility != "No Carriers Found" and selected_facility != "Error loading carriers":
         # Get all insurers for the selected facility
         facility_insurers = [insurer for insurer in insurer_data if insurer["Facility_Name"] == selected_facility]
         
@@ -841,7 +887,7 @@ def policy_manual_form(defaults=None):
 
         # Get selected facility ID for form data
         selected_facility_id = ""
-        if selected_facility and selected_facility != "Select Facility":
+        if selected_facility and selected_facility != "Select Carrier":
             facility_insurers = [insurer for insurer in insurer_data if insurer["Facility_Name"] == selected_facility]
             if facility_insurers:
                 selected_facility_id = facility_insurers[0].get("Facility_ID", "")
@@ -852,7 +898,7 @@ def policy_manual_form(defaults=None):
             "Broker_ID": selected_broker_id,
             "Broker_Name": selected_broker if selected_broker != "Select Broker" else "",
             "Facility_ID": selected_facility_id,  # Add facility ID to form data
-            "Facility_Name": selected_facility if selected_facility != "Select Facility" else "",
+            "Facility_Name": selected_facility if selected_facility != "Select Carrier" else "",
             "BODY": body,
             "MAKE": make,
             "MODEL": model,
@@ -883,7 +929,7 @@ def policy_manual_form(defaults=None):
             ("CUST_ID", cust_id),
             ("EXECUTIVE", executive),
             ("BROKER", selected_broker if selected_broker != "Select Broker" else ""),
-            ("FACILITY", selected_facility if selected_facility != "Select Facility" else ""),
+            ("FACILITY", selected_facility if selected_facility != "Select Carrier" else ""),
             ("CHASSIS_NO", chassis_no),
             ("POLICY_NO", policy_no),
             ("POL_EFF_DATE", pol_eff_date),
@@ -902,8 +948,8 @@ def policy_manual_form(defaults=None):
                 return form_data, False, back  # Return False for submit to prevent processing
             
             # Check for facility selection specifically
-            if not selected_facility or selected_facility == "Select Facility":
-                st.error("Please select a Facility before submitting the form.")
+            if not selected_facility or selected_facility == "Select Carrier":
+                st.error("Please select a Carrier before submitting the form.")
                 return form_data, False, back  # Return False for submit to prevent processing
             
             # Check other missing mandatory fields

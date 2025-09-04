@@ -102,11 +102,11 @@ def new_submission_tab():
     with col3:
         st.markdown("""
         <div style="border: 1px solid #ccc; border-radius: 30px; padding: 10px; margin-bottom: 10px; background-color: #144074; height: 120px;">
-            <h4 style="color: #23E4BA;">Slip Upload</h4>
+            <h4 style="color: #23E4BA;">Upload document/file</h4>
             <p>Upload policy-related documents and claims email threads for processing and record-keeping.</p>
         </div>
         """, unsafe_allow_html=True)
-        upload_btn = st.button("Upload Slip", use_container_width=True, type="primary")
+        upload_btn = st.button("Upload Document", use_container_width=True, type="primary")
 
     if policy_btn:
         st.session_state.submission_mode = "policy"
@@ -869,10 +869,10 @@ def claims_edit_tab():
             if not st.session_state.claim_fetched:
                 with st.form("fetch_claim_form"):
                     claim_no = st.text_input("Enter Claim No *")
-                    fetch = st.form_submit_button("Fetch Claim")
-                    back = st.form_submit_button("Back")
+                    fetch_btn = st.form_submit_button("Fetch Claim")
+                    back_btn = st.form_submit_button("Back")
 
-                    if fetch and claim_no.strip():
+                    if fetch_btn and claim_no.strip():
                         # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
                         # result = fetch_data(query)
                         result = _fetch_latest_claims(claim_no)
@@ -882,12 +882,13 @@ def claims_edit_tab():
                             else:
                                 st.session_state.claim_fetched = True
                                 st.session_state.claim_data = result[0]
+                                st.rerun()
                         else:
                             st.error("No claim found with that number.")
-                    elif fetch:
+                    elif fetch_btn:
                         st.error("Please enter Claim Number to proceed.")
                     
-                    if back:
+                    if back_btn:
                         st.session_state.claims_edit_page = "main"
                         st.session_state.claim_fetched = False
                         st.rerun()
@@ -923,10 +924,10 @@ def claims_edit_tab():
                         st.text_input("Executive", value=claim_data.get("EXECUTIVE", ""), disabled=True)
                         st.text_input("Vehicle", value=f"{claim_data.get('MAKE', '')} {claim_data.get('MODEL', '')}", disabled=True)
 
-                    submit = st.form_submit_button("Update Claim")
-                    back = st.form_submit_button("Back")
+                    update_btn = st.form_submit_button("Update Claim")
+                    back_btn = st.form_submit_button("Back")
 
-                    if submit:
+                    if update_btn:
                         try:
                             # update_data = {
                             #     "INTIMATED_AMOUNT": intimated_amount,
@@ -967,7 +968,7 @@ def claims_edit_tab():
                         except Exception as e:
                             st.error(f"Failed to update claim: {e}")
                     
-                    if back:
+                    if back_btn:
                         st.session_state.claim_fetched = False
                         st.rerun()
 
@@ -978,10 +979,10 @@ def claims_edit_tab():
             if not st.session_state.claim_closure_fetched:
                 with st.form("fetch_claim_closure_form"):
                     claim_no = st.text_input("Enter Claim No *")
-                    fetch = st.form_submit_button("Fetch Claim")
-                    back = st.form_submit_button("Back")
+                    fetch_btn_closure = st.form_submit_button("Fetch Claim")
+                    back_btn_closure = st.form_submit_button("Back")
 
-                    if fetch and claim_no.strip():
+                    if fetch_btn_closure and claim_no.strip():
                         # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
                         # result = fetch_data(query)
                         result = _fetch_latest_claims(claim_no)
@@ -991,12 +992,13 @@ def claims_edit_tab():
                             else:
                                 st.session_state.claim_closure_fetched = True
                                 st.session_state.claim_closure_data = result[0]
+                                st.rerun()
                         else:
                             st.error("No claim found with that number.")
-                    elif fetch:
+                    elif fetch_btn_closure:
                         st.error("Please enter Claim Number to proceed.")
-                    
-                    if back:
+
+                    if back_btn_closure:
                         st.session_state.claims_edit_page = "main"
                         st.session_state.claim_closure_fetched = False
                         st.rerun()
@@ -1086,10 +1088,10 @@ def claims_edit_tab():
             if not st.session_state.claim_reopen_fetched:
                 with st.form("fetch_claim_reopen_form"):
                     claim_no = st.text_input("Enter Claim No *")
-                    fetch = st.form_submit_button("Fetch Claim")
-                    back = st.form_submit_button("Back")
+                    fetch_btn_reopen = st.form_submit_button("Fetch Claim")
+                    back_btn_reopen = st.form_submit_button("Back")
 
-                    if fetch and claim_no.strip():
+                    if fetch_btn_reopen and claim_no.strip():
                         # query = f"SELECT * FROM Claims WHERE CLAIM_NO = '{claim_no}'"
                         # result = fetch_data(query)
                         result = _fetch_latest_claims(claim_no)
@@ -1099,12 +1101,13 @@ def claims_edit_tab():
                             else:
                                 st.session_state.claim_reopen_fetched = True
                                 st.session_state.claim_reopen_data = result[0]
+                                st.rerun()
                         else:
                             st.error("No claim found with that number.")
-                    elif fetch:
+                    elif fetch_btn_reopen:
                         st.error("Please enter Claim Number to proceed.")
-                    
-                    if back:
+
+                    if back_btn_reopen:
                         st.session_state.claims_edit_page = "main"
                         st.session_state.claim_reopen_fetched = False
                         st.rerun()

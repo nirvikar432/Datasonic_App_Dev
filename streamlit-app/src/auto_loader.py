@@ -253,7 +253,7 @@ def analyze_image_damage(image_data, filename):
             
             with st.spinner("Analyzing damage with Computer Vision..."):
                 # response = requests.post(cv_endpoint, json=payload, headers=headers, timeout=30)
-                response = requests.post(cv_endpoint, files=files, timeout=30)
+                response = requests.post(cv_endpoint, files=files, timeout=120)
 
 
             
@@ -358,7 +358,9 @@ def analyze_image_damage_with_storage(image_data, filename, created_by="system",
                     )
                     
                     if annotated_blob_link:
-                        st.success(f"✅ Annotated image uploaded to blob storage")
+                        # st.success(f"Annotated image uploaded to blob storage")
+                        print(f"Annotated image uploaded to blob storage")
+
                     
                 except Exception as blob_error:
                     st.warning(f"Failed to upload annotated image to blob: {blob_error}")
@@ -416,7 +418,7 @@ def analyze_image_damage_with_storage(image_data, filename, created_by="system",
             # Insert CV metadata into database
             try:
                 cv_uid = insert_cv_metadata(cv_metadata)
-                st.success(f"✅ CV analysis saved to database with UID: {cv_uid}")
+                print(f"✅ CV analysis saved to database with UID: {cv_uid}")
                 # st.success(f"✅ CV analysis saved to database with UID")
                 
                 # Update the CV response with database info
