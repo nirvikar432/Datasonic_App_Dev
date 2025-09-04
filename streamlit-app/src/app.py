@@ -13,7 +13,7 @@ from edit_tabs import new_submission_tab
 from charts_tab import charts_tab
 from toba import toba_tab
 from chatbot import chatbot_interface  # ✅ ADD CHATBOT IMPORT
-from fabric_data_agent_streamlit import chatbotAi
+# from fabric_data_agent_streamlit import chatbotAi
 
 
 # --- Custom Theme ---  
@@ -267,8 +267,8 @@ def main():
     #     computer_Vision()
     with tabs[3]:
         # log_viewer_tab()
-        # chatbot_interface()
-        chatbotAi()
+        chatbot_interface()
+        # chatbotAi()
     #     charts_tab()
 
     # Add footer at the bottom
