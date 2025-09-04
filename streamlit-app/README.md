@@ -23,19 +23,34 @@ A comprehensive Streamlit application for managing insurance policies, claims, a
 
 ```
 streamlit-app/
-├── src/
-│   ├── app.py                  # Main Streamlit application entry point
-│   ├── auto_loader.py         # Document processing and CV integration
-│   ├── edit_tabs.py           # Policy and claims management tabs
-│   ├── policy_tabs.py         # Policy-specific functionality
-│   ├── claim_tabs.py          # Claims-specific functionality
-│   └── dashboard_tabs.py      # Analytics and reporting dashboards
-├── utils/
-│   ├── db_utils.py            # Database operations and logging
-│   └── policy_forms.py        # Policy form handling and ML integration
-├── requirements.txt           # Python dependencies
-├── .env                       # Environment variables (not in repo)
-└── README.md                  # Project documentation
+├── .env                    # Environment variables and configuration
+├── README.md               # Project documentation
+├── media/                  # Application images and branding assets
+├── src/                    # Source code for application functionality
+│   ├── app.py              # Main application entry point
+│   ├── auto_loader.py      # Automatic document processing and loading
+│   ├── broker_insertion_date.py  # Broker data management
+│   ├── claims_tabs.py      # Claims management interface
+│   ├── edit_tabs.py        # Form editing interfaces
+│   ├── insurer_broker_upload.py  # Insurer and broker data upload
+│   ├── policy_tabs.py      # Policy management interface
+│   ├── submission.py       # New submission processing
+│   ├── theme.py            # UI theming and styling
+│   ├── toba.py             # Terms of Business Agreement module
+│   └── .streamlit/         # Streamlit configuration
+├── utils/                  # Utility functions and helpers
+│   ├── broker_form.py      # Broker form handling
+│   ├── db_utils.py         # Database operations
+│   ├── fabric_data_agent_client.py  # Microsoft Fabric integration
+│   ├── fabric_data_agent_streamlit.py  # Fabric UI components
+│   ├── insurer_form.py     # Insurer form handling
+│   ├── lakehouse_schema.json  # Data schema definition
+│   ├── metadata_manager.py  # Metadata management
+│   ├── policy_forms.py     # Policy form handling
+│   ├── policy_status_utils.py  # Policy status utilities
+│   ├── schema_extractor.py  # Schema extraction utilities
+│   ├── sql_alchemy_v2.py   # SQLAlchemy database interface
+│   └── json/               # JSON templates for forms and data
 ```
 
 ## 🛠️ Setup Instructions
@@ -91,6 +106,8 @@ Ensure your SQL Server database has the required tables:
 - `App_Log`
 - `Brokers`
 - `Insurers`
+- `APP_ML_DATA`
+- `APP_CV_DATA`
 
 ### 5. Run the Application
 ```bash
